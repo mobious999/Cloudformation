@@ -115,7 +115,7 @@ Resources:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref VPC
-      AvailabilityZone: !Select [ 1, !GetAZs  '' ]
+      AvailabilityZone: !Select [ 0, !GetAZs  '' ]
       CidrBlock: !Ref DataSubnet1CIDR
       MapPublicIpOnLaunch: false
       Tags:
