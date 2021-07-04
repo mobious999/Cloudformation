@@ -240,6 +240,10 @@ Outputs:
     Description: A list of the private subnets
     Value: !Join [ ",", [ !Ref PrivateSubnet1, !Ref PrivateSubnet2 ]]
 
+  DataSubnets:
+    Description: A list of the data subnets
+    Value: !Join [ ",", [ !Ref DataSubnet1, !Ref DataSubnet2 ]]
+
   PublicSubnet1:
     Description: A reference to the public subnet in the 1st Availability Zone
     Value: !Ref PublicSubnet1
@@ -255,4 +259,12 @@ Outputs:
   PrivateSubnet2:
     Description: A reference to the private subnet in the 2nd Availability Zone
     Value: !Ref PrivateSubnet2
+
+  DataSubnet1:
+    Description: A reference to the private subnet in the 1st Availability Zone
+    Value: !Ref DataSubnet1
+
+  DataSubnet2:
+    Description: A reference to the private subnet in the 2nd Availability Zone
+    Value: !Ref DataSubnet2
 
