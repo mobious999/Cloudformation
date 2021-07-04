@@ -1,7 +1,4 @@
-Description:  This template deploys a VPC, with a pair of public and private subnets spread
-  across two Availability Zones. It deploys an internet gateway, with a default
-  route on the public subnets. It deploys a pair of NAT gateways (one in each AZ),
-  and default routes for them in the private subnets.
+Description:  This template deploys a VPC, 4 Public and 4 Private subbnets with Igw and Nat Gateways.
 
 Parameters:
   EnvironmentName:
@@ -316,7 +313,7 @@ Resources:
       RouteTableId: !Ref PrivateRouteTable3
       SubnetId: !Ref PrivateSubnet3
 
-PrivateRouteTable4:
+  PrivateRouteTable4:
     Type: AWS::EC2::RouteTable
     Properties:
       VpcId: !Ref VPC
@@ -369,7 +366,7 @@ Outputs:
     Description: A reference to the public subnet in the 2nd Availability Zone
     Value: !Ref PublicSubnet3
 
-  PublicSubnet3:
+  PublicSubnet4:
     Description: A reference to the public subnet in the 2nd Availability Zone
     Value: !Ref PublicSubnet4
 
@@ -385,7 +382,7 @@ Outputs:
     Description: A reference to the private subnet in the 2nd Availability Zone
     Value: !Ref PrivateSubnet3
 
-  PrivateSubnet3:
+  PrivateSubnet4:
     Description: A reference to the private subnet in the 2nd Availability Zone
     Value: !Ref PrivateSubnet4
 
