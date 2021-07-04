@@ -8,7 +8,7 @@ Parameters:
   VpcCIDR:
     Description: Please enter the IP range (CIDR notation) for this VPC
     Type: String
-    Default: 110.0.0.0/16
+    Default: 10.0.0.0/8
 
   PublicSubnet1CIDR:
     Description: Please enter the IP range (CIDR notation) for the public subnet in the first Availability Zone
