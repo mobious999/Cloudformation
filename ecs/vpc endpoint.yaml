@@ -49,20 +49,7 @@ Resources:
       VpcId: 
         Ref: ParamVpcId
 
-  CodedeployEndpoint:
-    Type: AWS::EC2::VPCEndpoint
-    Properties:
-      PrivateDnsEnabled: true
-      SecurityGroupIds: 
-        - !Ref ParamSecurityGroupId
-      ServiceName: !Sub "com.amazonaws.${AWS::Region}.codedeploy"
-      SubnetIds: 
-        Ref: ParamSubnetIds
-      VpcEndpointType: 'Interface'
-      VpcId: 
-        Ref: ParamVpcId
-
-  CodePipelineEndpoint:
+  CodepipelineEndpoint:
     Type: AWS::EC2::VPCEndpoint
     Properties:
       PrivateDnsEnabled: true
