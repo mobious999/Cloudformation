@@ -1,0 +1,63 @@
+AWSTemplateFormatVersion : "2010-09-09"
+Description: >
+  * com.amazonaws.<region>.codebuild
+  * com.amazonaws.<region>.codecommit
+  * com.amazonaws.<region>.codedeploy
+  * com.amazonaws.<region>.codepipeline
+
+Parameters: 
+  ParamVpcId:
+    Type: AWS::EC2::VPC::Id
+    Default: "vpc-xxxxxxxxxxxxxxxxx"
+    Description: "Select the VPC ID for the VPC endpoint."
+
+  ParamSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+    Default: 'sg-xxxxxxxxxxxxxxxxx'
+    Description: >
+      Select security group to associate with the VPC endpoint.
+
+  ParamSubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Default: 'subnet-123a351e, subnet-456b351e'
+    Description: "Select the subnets to associate with the VPC endpoint."
+
+Resources:
+  CodebuildEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      PrivateDnsEnabled: true
+      SecurityGroupIds: 
+        - !Ref ParamSecurityGroupId
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.codebuild"
+      SubnetIds: 
+        Ref: ParamSubnetIds
+      VpcEndpointType: 'Interface'
+      VpcId: 
+        Ref: ParamVpcId
+  
+  CodecommitEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      PrivateDnsEnabled: true
+      SecurityGroupIds: 
+        - !Ref ParamSecurityGroupId
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.codecommit"
+      SubnetIds: 
+        Ref: ParamSubnetIds
+      VpcEndpointType: 'Interface'
+      VpcId: 
+        Ref: ParamVpcId
+
+  CodepipelineEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      PrivateDnsEnabled: true
+      SecurityGroupIds: 
+        - !Ref ParamSecurityGroupId
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.codepipeline"
+      SubnetIds: 
+        Ref: ParamSubnetIds
+      VpcEndpointType: 'Interface'
+      VpcId: 
+        Ref: ParamVpcId
