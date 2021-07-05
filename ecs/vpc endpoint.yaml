@@ -1,9 +1,9 @@
 AWSTemplateFormatVersion : "2010-09-09"
 Description: >
-  * com.amazonaws.<region>.codebuild
-  * com.amazonaws.<region>.codecommit
-  * com.amazonaws.<region>.codedeploy
-  * com.amazonaws.<region>.codepipeline
+  * com.amazonaws.<region>.ecs
+  * com.amazonaws.<region>.ecr
+  * com.amazonaws.<region>.eks
+  * com.amazonaws.<region>.elasticfilesystem
 
 Parameters: 
   ParamVpcId:
@@ -23,39 +23,52 @@ Parameters:
     Description: "Select the subnets to associate with the VPC endpoint."
 
 Resources:
-  CodebuildEndpoint:
+  EcsEndpoint:
     Type: AWS::EC2::VPCEndpoint
     Properties:
       PrivateDnsEnabled: true
       SecurityGroupIds: 
         - !Ref ParamSecurityGroupId
-      ServiceName: !Sub "com.amazonaws.${AWS::Region}.codebuild"
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.ecs"
       SubnetIds: 
         Ref: ParamSubnetIds
       VpcEndpointType: 'Interface'
       VpcId: 
         Ref: ParamVpcId
   
-  CodecommitEndpoint:
+  EcrEndpoint:
     Type: AWS::EC2::VPCEndpoint
     Properties:
       PrivateDnsEnabled: true
       SecurityGroupIds: 
         - !Ref ParamSecurityGroupId
-      ServiceName: !Sub "com.amazonaws.${AWS::Region}.codecommit"
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.ecr"
       SubnetIds: 
         Ref: ParamSubnetIds
       VpcEndpointType: 'Interface'
       VpcId: 
         Ref: ParamVpcId
 
-  CodepipelineEndpoint:
+  EksEndpoint:
     Type: AWS::EC2::VPCEndpoint
     Properties:
       PrivateDnsEnabled: true
       SecurityGroupIds: 
         - !Ref ParamSecurityGroupId
-      ServiceName: !Sub "com.amazonaws.${AWS::Region}.codepipeline"
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.eks"
+      SubnetIds: 
+        Ref: ParamSubnetIds
+      VpcEndpointType: 'Interface'
+      VpcId: 
+        Ref: ParamVpcId
+
+  EfsEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      PrivateDnsEnabled: true
+      SecurityGroupIds: 
+        - !Ref ParamSecurityGroupId
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.elasticfilesystem"
       SubnetIds: 
         Ref: ParamSubnetIds
       VpcEndpointType: 'Interface'
