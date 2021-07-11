@@ -1,0 +1,67 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Backup Plan template for thin backups"
+Resources:
+  BackupVaultWithThinBackups:
+    Type: "AWS::Backup::BackupVault"
+    Properties:
+      BackupVaultName: "BackupVaultWithThinBackups"
+
+  BackupPlanWithThinBackups:
+    Type: "AWS::Backup::BackupPlan"
+    Properties:
+      BackupPlan:
+        BackupPlanName: "BackupPlanWithThinBackups"
+        AdvancedBackupSettings:
+          -
+            ResourceType: EC2
+            BackupOptions:
+              WindowsVSS: enabled
+        BackupPlanRule:
+          -
+            RuleName: "RuleForDailyBackups"
+            TargetBackupVault: !Ref BackupVaultWithThinBackups
+            ScheduleExpression: "cron(25 11 ? * * *)"
+            Lifecycle:
+              DeleteAfterDays: 7
+            CopyActions:
+              -
+                  DestinationBackupVaultArn: arn:aws:backup:us-west-2:111222333444:backup-vault:Default
+                  Lifecycle:
+                   DeleteAfterDays: 14
+          -
+            RuleName: "RuleForWeeklyBackups"
+            TargetBackupVault: !Ref BackupVaultWithThinBackups
+            ScheduleExpression: "cron(0 11 ? * 2 *)"
+            Lifecycle:
+              DeleteAfterDays: 28
+            CopyActions:
+              -
+                  DestinationBackupVaultArn: arn:aws:backup:us-west-2:111222333444:backup-vault:Default
+                  Lifecycle:
+                   DeleteAfterDays: 14
+          -
+            RuleName: "RuleForMonthlyBackups"
+            TargetBackupVault: !Ref BackupVaultWithThinBackups
+            ScheduleExpression: "cron(0 11 1 * ? *)"
+            Lifecycle:
+              DeleteAfterDays: 90
+            CopyActions:
+              -
+                  DestinationBackupVaultArn: arn:aws:backup:us-west-2:111222333444:backup-vault:Default
+                  Lifecycle:
+                   DeleteAfterDays: 14
+    DependsOn: BackupVaultWithThinBackups
+
+  TagBasedBackupSelection:
+    Type: "AWS::Backup::BackupSelection"
+    Properties:
+      BackupSelection:
+        SelectionName: "TagBasedBackupSelection"
+        IamRoleArn: !Sub "arn:aws:iam::${AWS::AccountId}:role/service-role/AWSBackupDefaultServiceRole"
+        ListOfTags:
+         -
+           ConditionType: "STRINGEQUALS"
+           ConditionKey: "backup"
+           ConditionValue: "thinbackup"
+      BackupPlanId: !Ref BackupPlanWithThinBackups
+    DependsOn: BackupPlanWithThinBackups

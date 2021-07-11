@@ -1,0 +1,1 @@
+aws cloudformation create-stack --stack-name <stack name> --template-body file://aws-backup.yaml --parameters=file://sample-params.json 
