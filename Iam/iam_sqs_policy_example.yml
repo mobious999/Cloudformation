@@ -1,0 +1,17 @@
+mysqspolicy:
+  Type: AWS::SQS::QueuePolicy
+  Properties:
+    PolicyDocument:
+      Id: MyQueuePolicy
+      Version: '2012-10-17'
+      Statement:
+      - Sid: Allow-User-SendMessage
+        Effect: Allow
+        Principal:
+          AWS: arn:aws:iam::123456789012:user/myapp
+        Action:
+        - sqs:SendMessage
+        Resource: "*"
+    Queues:
+    - https://sqs.us-east-2.amazonaws.com/123456789012/myexistingqueue
+    - !Ref myqueue

@@ -1,0 +1,10 @@
+myaccesskey:
+  Type: AWS::IAM::AccessKey
+  Properties:
+    UserName:
+      !Ref myuser
+  AccessKeyformyaccesskey:
+    Value:
+      !Ref myaccesskey
+  SecretKeyformyaccesskey:
+    Value: !GetAtt myaccesskey.SecretAccessKey

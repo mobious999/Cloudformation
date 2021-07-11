@@ -1,0 +1,4 @@
+MyQueue:
+  Type: AWS::SQS::Queue
+  Properties:
+    VisibilityTimeout: value

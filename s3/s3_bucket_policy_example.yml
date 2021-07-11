@@ -1,0 +1,15 @@
+mybucketpolicy:
+  Type: AWS::S3::BucketPolicy
+  Properties:
+    PolicyDocument:
+      Id: MyPolicy
+      Version: '2012-10-17'
+      Statement:
+      - Sid: ReadAccess
+        Action:
+        - s3:GetObject
+        Effect: Allow
+        Resource: !Sub "arn:aws:s3:::${mybucket}/*"
+        Principal:
+          AWS: !GetAtt user1.Arn
+    Bucket: !Ref mybucket

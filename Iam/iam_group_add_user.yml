@@ -1,0 +1,7 @@
+addUserToGroup:
+  Type: AWS::IAM::UserToGroupAddition
+  Properties:
+    GroupName: myexistinggroup2
+    Users:
+    - existinguser1
+    - !Ref myuser
