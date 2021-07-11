@@ -1,0 +1,41 @@
+Description: Backup Plan template to enable Windows VSS and add backup rule to take backup of assigned resources daily at 5am UTC.
+
+Resources:
+  KMSKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: "Encryption key for daily"
+      EnableKeyRotation: True
+      Enabled: True
+      KeyPolicy:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              "AWS": { "Fn::Sub": "arn:${AWS::Partition}:iam::${AWS::AccountId}:root" }
+            Action:
+              - kms:*
+            Resource: "*"
+
+  BackupVaultWithDailyBackups:
+    Type: "AWS::Backup::BackupVault"
+    Properties:
+      BackupVaultName: "BackupVaultWithDailyBackups"
+      EncryptionKeyArn: !GetAtt KMSKey.Arn
+
+  BackupPlanWithDailyBackups:
+    Type: "AWS::Backup::BackupPlan"
+    Properties:
+      BackupPlan:
+        BackupPlanName: "BackupPlanWithDailyBackups"
+        AdvancedBackupSettings:
+          - ResourceType: EC2
+            BackupOptions:
+              WindowsVSS: enabled
+        BackupPlanRule:
+          -
+            RuleName: "RuleForDailyBackups"
+            TargetBackupVault: !Ref BackupVaultWithDailyBackups
+            ScheduleExpression: "cron(0 5 ? * * *)"
+
+    DependsOn: BackupVaultWithDailyBackups

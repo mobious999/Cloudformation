@@ -1,0 +1,23 @@
+Resources:
+  myInlinePolicyForS3ReadOnly:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      PolicyName: inlineS3ReadOnlyPolicy # (required) give a name to this policy
+      PolicyDocument: # (required) JSON policy document
+        Version: '2012-10-17'
+        Statement: # allow read only access to all S3 buckets
+          - Effect: Allow
+            Action:
+              - 's3:Get*'
+              - 's3:List*'
+            Resource: '*'
+      # Note, Groups, Roles, and Users fields are optional. However, you must specify at least one of these fields
+      Users: # attach this policy to the list of existing users
+          - userA
+          - userB
+      Groups: # attach this policy to the list of existing groups
+          - groupA
+          - groupB
+      Roles: # attach this policy to the list of existing roles
+          - roleA
+          - roleB

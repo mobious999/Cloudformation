@@ -1,0 +1,7 @@
+Resources:
+  myRole: # a new role
+    Type: 'AWS::IAM::Role'
+    Properties: 
+      # ... some code here ...
+      ManagedPolicyArns: # list of ARNs of IAM managed policies that you want to attach to the role
+        - arn:aws:iam::aws:policy/AWSCloud9Administrator # provides administrator access to AWS Cloud9

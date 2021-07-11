@@ -1,0 +1,24 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: ""
+Resources:
+  SecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: "A security group that allows allow ICMP traffic."
+      VpcId: ""
+      SecurityGroupEgress:
+        - FromPort: -1
+          ToPort: -1
+          IpProtocol: "-1"
+          Description: ""
+          CidrIp: "0.0.0.0/0"
+      SecurityGroupIngress:
+        - FromPort: -1
+          ToPort: -1
+          IpProtocol: "icmp"
+          Description: "Allow ICMP traffic"
+          CidrIp: ""
+      GroupName: "allow-icmp-traffic"
+Parameters: {}
+Metadata: {}
+Conditions: {}

@@ -1,0 +1,240 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: This template deploys backup policies required to manage backups at an organization level.
+
+Parameters:
+  ImpactedAccounts: 
+    Description: "CSV list of the Org Ids"
+    Type: CommaDelimitedList
+    Default: ""
+    
+  ConfigBucket:
+    Description: S3 Bucket for the Custom Lambda Code and Templates
+    Type: String
+    Default: mb3-venkitas
+    
+  ConfigBucketKey:
+    Description: S3 Key for the Custom Lambda Code and Templates
+    Type: String
+    Default: IaC/cfn-templates/Backup/     
+Resources:
+#Type='SERVICE_CONTROL_POLICY'|'TAG_POLICY'|'BACKUP_POLICY'|'AISERVICES_OPT_OUT_POLICY'
+  GoldDailyBackupPolicySyd:
+    Type: Custom::OrgPolicy
+    Properties:
+      PolicyName: GoldDailyBackupPolicySyd
+      PolicyType: BACKUP_POLICY
+      PolicyTargets : !Ref ImpactedAccounts
+      PolicyDescription: >-
+        BackupPolicy for Daily Backup as per the resource selection criteria
+      PolicyContents: |-
+            {
+                "plans": {
+                    "OrgDailyBackupPlan": {
+                        "regions": {
+                            "@@assign": [
+                                "REGION"
+                            ]
+                        },
+                        "rules": {
+                            "OrgDailyBackupRule": {
+                                "schedule_expression": {
+                                    "@@assign": "SCHEDULE_EXPRESSION"
+                                },
+                                "start_backup_window_minutes": {
+                                    "@@assign": "480"
+                                },
+                                "complete_backup_window_minutes": {
+                                    "@@assign": "720"
+                                },
+                                "lifecycle": {
+                                    "delete_after_days": {
+                                        "@@assign": "1"
+                                    }
+                                },
+                                "target_backup_vault_name": {
+                                    "@@assign": "DailyBackupVault"
+                                },
+                                "recovery_point_tags": {
+                                    "project": {
+                                        "tag_key": {
+                                            "@@assign": "TAG_KEY"
+                                        },
+                                        "tag_value": {
+                                            "@@assign": "TAG_VALUE"
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "backup_plan_tags": {
+                            "project": {
+                                "tag_key": {
+                                    "@@assign": "TAG_KEY"
+                                },
+                                "tag_value": {
+                                    "@@assign": "TAG_VALUE"
+                                }
+                            }
+                        },
+                        "selections": {
+                            "tags": {
+                                "OrgDailyBackupSelection": {
+                                    "iam_role_arn": {
+                                        "@@assign": "arn:aws:iam::$account:role/BackupRole"
+                                    },
+                                    "tag_key": {
+                                        "@@assign": "TAG_KEY"
+                                    },
+                                    "tag_value": {
+                                        "@@assign": [
+                                            "TAG_VALUE"
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+      Variables:
+          - REGION : !Ref 'AWS::Region'
+          - TAG_KEY : project
+          - TAG_VALUE : aws-backup-demo
+          - SCHEDULE_EXPRESSION : "cron(0 5 ? * * *)"
+      ServiceToken: !GetAtt OrgPolicyCustomResourceManager.Arn
+      
+  DenyVaultAndLogBucketOperationsSCP:
+    Type: Custom::OrgPolicy
+    Properties:
+      PolicyName: SCP_DENY_VAULT_AND_LOG_BUCKET_OPERATIONS
+      PolicyType: SERVICE_CONTROL_POLICY
+      PolicyTargets : !Ref ImpactedAccounts
+      PolicyDescription: >-
+        This SCP denies operations on Vault and log bucket that are tagged with a specific project name.
+      PolicyContents: |-
+                    {
+                        "Version": "2012-10-17",
+                        "Statement": [
+                            {
+                                "Sid": "DenyLogBucketOperations",
+                                "Effect": "Deny",
+                                "Action": [
+                                    "s3:DeleteBucket",
+                                    "s3:DeleteBucketPolicy",
+                                    "s3:DeleteJobTagging",
+                                    "s3:DeleteAccessPointPolicy",
+                                    "s3:DeleteAccessPoint",
+                                    "s3:DeleteBucketWebsite"
+                                ],
+                                "Resource": [
+                                    "arn:aws:s3:::LOG_BUCKET-*"
+                                ]
+                            },
+                            {
+                                "Sid": "DenyLogBucketObjectOperations",
+                                "Effect": "Deny",
+                                "Action": [
+                                    "s3:DeleteObject",
+                                    "s3:DeleteObjectTagging",
+                                    "s3:DeleteObjectVersion",
+                                    "s3:DeleteObjectVersionTagging"
+                                ],
+                                "Resource": [
+                                    "arn:aws:s3:::LOG_BUCKET-*/*"
+                                ]
+                            },
+                            {
+                                "Sid": "DenyVaultOperations",
+                                "Effect": "Deny",
+                                "Action": [
+                                    "backup:DeleteBackupVault",
+                                    "backup:DeleteBackupSelection",
+                                    "backup:DeleteBackupPlan",
+                                    "backup:DeleteBackupVaultAccessPolicy",
+                                    "backup:DeleteBackupVaultNotifications",
+                                    "backup:DeleteRecoveryPoint",
+                                    "backup:UntagResource"
+                                ],
+                                "Resource": [
+                                    "*"
+                                ],
+                                "Condition": {
+                                    "StringEquals": {
+                                        "aws:ResourceTag/TAG_KEY": [
+                                            "TAG_VALUE"
+                                        ]
+                                    }
+                                }
+                            }
+                        ]
+                    }
+      Variables:
+          - REGION : !Ref 'AWS::Region'
+          - LOG_BUCKET : backup-log-bucket
+          - TAG_KEY : project
+          - TAG_VALUE : aws-backup-demo
+      ServiceToken: !GetAtt OrgPolicyCustomResourceManager.Arn
+
+  OrgPolicyCustomResourceManager:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: OrgPolicyCustomResourceManager
+      Description: Lambda function to deploy CloudFormation custom resources
+                   for Organization SCPs.
+      Handler: OrgPolicyCustomResourceManager.lambda_handler
+      Code:
+        S3Bucket: !Ref ConfigBucket
+        S3Key: !Sub 
+          - '${S3Prefix}OrgPolicyCustomResourceManager.zip'
+          - { S3Prefix: !Ref ConfigBucketKey }  
+      Role: !GetAtt OrgPolicyCustomResourceManagerRole.Arn
+      Runtime: python3.7
+      MemorySize: 256
+      Timeout: 300
+      Tags:
+        - Key: Name
+          Value: OrgPolicyCustomResourceManager
+
+  OrgPolicyCustomResourceManagerRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: 'lambda.amazonaws.com'
+          Action:
+          - 'sts:AssumeRole'
+      Path: '/'
+      ManagedPolicyArns:
+      - 'arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
+      Policies:
+      - PolicyName: AssumeOrgRole
+        PolicyDocument:
+          Statement:
+          - Effect: Allow
+            Action:
+              - sts:AssumeRole
+            Resource: '*'
+      - PolicyName: OrgPermissions
+        PolicyDocument:
+          Statement:
+          - Effect: Allow
+            Action:
+              - organizations:CreatePolicy
+              - organizations:DeletePolicy
+              - organizations:AttachPolicy
+              - organizations:DetachPolicy
+              - organizations:ListPolicies
+            Resource: '*'
+      - PolicyName: S3Permissions
+        PolicyDocument:
+          Statement:
+          - Effect: Allow
+            Action:
+              - s3:Get*
+            Resource: 
+              !Sub 
+                - 'arn:aws:s3:::${Bucket}/*'
+                - { Bucket: !Ref ConfigBucket }

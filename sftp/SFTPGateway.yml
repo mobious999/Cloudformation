@@ -1,0 +1,260 @@
+AWSTemplateFormatVersion: 2010-09-09
+Mappings:
+  RegionMap:
+    ap-northeast-1:
+      AMI: ami-0fb21b4aa14df9644
+    ap-northeast-2:
+      AMI: ami-0e718f7b47589f06e
+    ap-south-1:
+      AMI: ami-01d7fe6516804cdb5
+    ap-southeast-1:
+      AMI: ami-0d460f7fb0868710d
+    ap-southeast-2:
+      AMI: ami-0df3632fb977f5e7b
+    ca-central-1:
+      AMI: ami-0b5dd7d6654a382b4
+    eu-central-1:
+      AMI: ami-01bad9426849b8ec6
+    eu-west-1:
+      AMI: ami-076fc6aa5fb693741
+    eu-west-2:
+      AMI: ami-0dd42e45b40a30061
+    eu-west-3:
+      AMI: ami-0d621caae577e29fe
+    sa-east-1:
+      AMI: ami-0b250fcdcfab95380
+    us-east-1:
+      AMI: ami-0a48d69f040e84045
+    us-east-2:
+      AMI: ami-08e569bcd316a99f5
+    us-west-1:
+      AMI: ami-014f2a4483542e98b
+    us-west-2:
+      AMI: ami-0668a1771d7bab2ca
+    us-gov-west-1:
+      AMI: ami-b05912d1
+    us-gov-east-1:
+      AMI: ami-a328c8d2  
+    ap-east-1:
+      AMI: ami-cacdb6bb
+    me-south-1:
+      AMI: ami-0aa64bbdd268e4322    
+    eu-north-1:
+      AMI: ami-20c64c5e
+Conditions:
+  DefaultBucketIsBlank: !Equals ["", !Ref DefaultBucket]
+Resources:
+  RootInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: /
+      Roles:
+        - !Ref S3WritableRole
+  S3WritableRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      Path: /
+  RolePolicies:
+    Type: AWS::IAM::Policy
+    DependsOn:
+      - SFTPGatewayInstance
+    Properties:
+      PolicyName: SFTPGatewayInstancePolicy
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - s3:PutObject
+              - s3:GetObject
+            Resource: '*'
+          - Effect: Allow
+            Action:
+              - s3:CreateBucket
+              - s3:ListBucket
+              - s3:ListAllMyBuckets
+              - s3:GetBucketLocation
+            Resource: '*'
+      Roles:
+        - !Ref S3WritableRole
+  IPAddress:
+    Properties:
+      Domain: vpc
+      InstanceId: !Ref SFTPGatewayInstance
+    Type: AWS::EC2::EIP
+  SFTPGatewayInstance:
+    Type: AWS::EC2::Instance
+    Metadata:
+      AWS::CloudFormation::Init:
+        config:
+          commands:
+            setup:
+              command: !If [DefaultBucketIsBlank, '/usr/local/bin/sftpgatewaysetup', !Sub '/usr/local/bin/sftpgatewaysetup --bucket ${DefaultBucket}']
+    Properties:
+      IamInstanceProfile: !Ref RootInstanceProfile
+      ImageId: !FindInMap
+        - RegionMap
+        - !Ref AWS::Region
+        - AMI
+      InstanceType: !Ref EC2Type
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: !Ref DiskVolumeSize
+            VolumeType: gp2
+      KeyName: !Ref KeyPair
+      SecurityGroupIds:
+        - !Ref SFTPGatewaySG
+      SubnetId: !Ref SubnetID
+      Tags:
+        - Key: Name
+          Value: SFTPGateway Instance
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          yum update -y aws-cfn-bootstrap
+          /opt/aws/bin/cfn-init --stack ${AWS::StackName} --resource SFTPGatewayInstance --region ${AWS::Region}
+  SFTPGatewayBucket:
+    DeletionPolicy: Retain
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !If [DefaultBucketIsBlank, !Sub 'sftpgateway-${SFTPGatewayInstance}', !Ref DefaultBucket]
+    DependsOn:
+      - SFTPGatewayInstance
+  SFTPGatewaySG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: SFTPGateway Security Group
+      VpcId: !Ref VPCIdName
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref InputCIDR
+Parameters:
+  VPCIdName:
+    Description: SFTP Gateway will launch into this VPC
+    Type: AWS::EC2::VPC::Id
+  EC2Type:
+    Description: SFTP Gateway instance type. You can use a t2.micro for testing, but m4.large is recommended for Production.
+    Type: String
+    Default: t2.medium
+    AllowedValues:
+      - t1.micro
+      - t2.nano
+      - t2.micro
+      - t2.small
+      - t2.medium
+      - t2.large
+      - t2.xlarge
+      - t2.2xlarge
+      - m3.medium
+      - m3.large
+      - m3.xlarge
+      - m3.2xlarge
+      - m4.large
+      - m4.xlarge
+      - m4.2xlarge
+      - m4.4xlarge
+      - m4.10xlarge
+      - m4.16xlarge
+      - m5.large
+      - m5.xlarge
+      - m5.2xlarge
+      - m5.4xlarge
+      - m5.12xlarge
+      - m5.24xlarge
+      - c4.large
+      - c4.xlarge
+      - c4.2xlarge
+      - c4.4xlarge
+      - c4.8xlarge
+      - c5.large
+      - c5.xlarge
+      - c5.2xlarge
+      - c5.4xlarge
+      - c5.9xlarge
+      - c5.18xlarge
+      - f1.2xlarge
+      - f1.16xlarge
+      - g2.2xlarge
+      - g2.8xlarge
+      - g3.4xlarge
+      - g3.8xlarge
+      - g3.16xlarge
+      - p2.xlarge
+      - p2.8xlarge
+      - p2.16xlarge
+      - p3.2xlarge
+      - p3.8xlarge
+      - p3.16xlarge
+      - cr1.8xlarge
+      - r3.large
+      - r3.xlarge
+      - r3.2xlarge
+      - r3.4xlarge
+      - r3.8xlarge
+      - r4.large
+      - r4.xlarge
+      - r4.2xlarge
+      - r4.4xlarge
+      - r4.8xlarge
+      - r4.16xlarge
+      - x1.16xlarge
+      - x1.32xlarge
+      - x1e.xlarge
+      - x1e.2xlarge
+      - x1e.4xlarge
+      - x1e.8xlarge
+      - x1e.16xlarge
+      - x1e.32xlarge
+      - i2.xlarge
+      - i2.2xlarge
+      - i2.4xlarge
+      - i2.8xlarge
+      - i3.large
+      - i3.xlarge
+      - i3.2xlarge
+      - i3.4xlarge
+      - i3.8xlarge
+      - i3.16xlarge
+      - h1.2xlarge
+      - h1.4xlarge
+      - h1.8xlarge
+      - h1.16xlarge
+      - hi1.4xlarge
+      - hs1.8xlarge
+      - d2.xlarge
+      - d2.2xlarge
+      - d2.4xlarge
+      - d2.8xlarge
+  KeyPair:
+    Description: Make sure you have access to this EC2 key pair. Otherwise, create a new key pair before proceeding.
+    Type: AWS::EC2::KeyPair::KeyName
+    ConstraintDescription: Existing EC2 KeyPair.
+  SubnetID:
+    Description: Make sure this subnet belongs to the VPC below.
+    Type: AWS::EC2::Subnet::Id
+  DefaultBucket:
+    Description: Set an S3 bucket (leave blank to accept the default)
+    Type: String
+  DiskVolumeSize:
+    Default: 32
+    Description: Disk volume size in GB. Must be at least 32.
+    ConstraintDescription: Must be a number greater or equal to 32
+    MinValue: 32
+    Type: Number
+  InputCIDR:
+    Description: Public IP address range for SSH and SFTP access. Use 0.0.0.0/0 to allow any IP address. Use a CIDR range to restrict access. To get your local machine's IP, see http://checkip.dyndns.org/. (Remember to append /32 for a single IP e.g. 12.34.56.78/32)
+    Type: String
+Outputs:
+  ElasticIP:
+    Value: !Ref IPAddress
+    Description: Elastic IP address
