@@ -1,0 +1,10 @@
+myDNSRecord2:
+  Type: AWS::Route53::RecordSet
+  Properties:
+    HostedZoneName: example.com.
+    Name: mysite.example.com.
+    Type: A
+    TTL: '900'
+    ResourceRecords:
+    - 192.168.0.1
+    - 192.168.0.2

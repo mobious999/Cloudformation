@@ -1,0 +1,109 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Deploy a service on AWS Fargate, hosted in a private subnet.
+
+Parameters:
+
+  ENV:
+    Description: Name of the environment
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /cloudformation/parameters/env
+
+  VPCStackName:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /cloudformation/parameters/vpc/stackname
+    Description: The name of the parent VPC networking stack that you created. Necessary
+                 to locate and reference resources created by that stack.
+
+  ECSStackName:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /cloudformation/parameters/ecs/stackname
+    Description: The name of the parent ECS stack that you created. Necessary
+                 to locate and reference resources created by that stack.
+
+  ServiceName:
+    Type: String
+    Default: "CHANGE-ME"
+    Description: A name for the service
+
+  ContainerPort:
+    Type: Number
+    Default: 8443
+    Description: What port number the application inside the docker container is binding to
+  ContainerCpu:
+    Type: Number
+    Default: 2048
+    Description: How much CPU to give the container. 1024 is 1 CPU
+  ContainerMemory:
+    Type: Number
+    Default: 4096
+    Description: How much memory in megabytes to give the container
+
+  DesiredCount:
+    Type: Number
+    Default: 1
+    Description: How many copies of the service task to run
+
+
+Resources:
+
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: { Ref: ServiceName }
+      RetentionInDays: 365
+
+  ECRRepo:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: {"Fn::Sub" : "my-test-org/${ServiceName}"}
+
+
+  # The task definition.
+  TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: { Ref: ServiceName }
+      Cpu: { Ref: ContainerCpu }
+      Memory: { Ref: ContainerMemory }
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      ExecutionRoleArn: {"Fn::ImportValue" : {"Fn::Sub" : "${ECSStackName}-ECSTaskExecutionRole"}}
+      TaskRoleArn: { Ref: TaskRole }
+      ContainerDefinitions:
+        - Name: { Ref: ServiceName }
+          Environment:
+            - Name: "APP_ENV"
+              Value: { Ref: ENV }
+            - Name: "AWS_DEFAULT_REGION"
+              Value: { Ref: "AWS::Region" }
+            - Name: "PORT"
+              Value: { Ref: ContainerPort }
+          Image: { "Fn::Sub": "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ECRRepo}:${ENV}" }
+          PortMappings:
+            - ContainerPort: { Ref: ContainerPort }
+          LogConfiguration:
+            LogDriver: "awslogs"
+            Options:
+              awslogs-group: { Ref: LogGroup }
+              awslogs-region: { Ref: "AWS::Region" }
+              awslogs-stream-prefix: { Ref: ENV }
+
+  # The ECS service.
+  Service:
+    Type: AWS::ECS::Service
+    DependsOn: LoadBalancerRule
+    Properties:
+      ServiceName: { Ref: ServiceName }
+      Cluster: {"Fn::ImportValue" : {"Fn::Sub" : "${ECSStackName}-ClusterName"}}
+      LaunchType: FARGATE
+      DeploymentConfiguration:
+        MaximumPercent: 200
+        MinimumHealthyPercent: 100
+      DesiredCount: { Ref: DesiredCount }
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          SecurityGroups: 
+            - {"Fn::ImportValue" : {"Fn::Sub" : "${ECSStackName}-FargateContainerSecurityGroup"}} 
+          Subnets: { "Fn::Split": [ "," , {"Fn::ImportValue" : {"Fn::Sub" : "${VPCStackName}-PrivateSubnetList"}}]}
+      TaskDefinition: { Ref: TaskDefinition }

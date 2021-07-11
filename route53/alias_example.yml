@@ -1,0 +1,20 @@
+myELB:
+  Type: AWS::ElasticLoadBalancing::LoadBalancer
+  Properties:
+    AvailabilityZones:
+    - "us-east-1a"
+    Listeners:
+    - LoadBalancerPort: '80'
+      InstancePort: '80'
+      Protocol: HTTP
+myDNS:
+  Type: AWS::Route53::RecordSetGroup
+  Properties:
+    HostedZoneName: example.com.
+    Comment: Zone apex alias targeted to myELB LoadBalancer.
+    RecordSets:
+    - Name: example.com.
+      Type: A
+      AliasTarget:
+        HostedZoneId: !GetAtt 'myELB.CanonicalHostedZoneNameID'
+        DNSName: !GetAtt 'myELB.DNSName'

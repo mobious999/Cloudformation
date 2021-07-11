@@ -1,0 +1,17 @@
+myELB:
+  Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+  Properties:
+    Subnets:
+    - Ref: SubnetAZ1
+    - Ref: SubnetAZ2
+myDNS:
+  Type: AWS::Route53::RecordSetGroup
+  Properties:
+    HostedZoneName: example.com.
+    Comment: Zone apex alias targeted to myELB LoadBalancer.
+    RecordSets:
+    - Name: example.com.
+      Type: A
+      AliasTarget:
+        HostedZoneId: !GetAtt 'myELB.CanonicalHostedZoneID'
+        DNSName: !GetAtt 'myELB.DNSName'
