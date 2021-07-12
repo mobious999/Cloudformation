@@ -1,0 +1,10 @@
+Resources:
+  ASGScalingPolicyHigh: 
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties: 
+      AdjustmentType: "ChangeInCapacity"
+      PolicyType: "SimpleScaling"
+      Cooldown: "300"
+      AutoScalingGroupName: 
+        Ref: "myASG"
+      ScalingAdjustment: 1

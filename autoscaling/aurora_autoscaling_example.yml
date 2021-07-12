@@ -1,0 +1,25 @@
+Resources:
+  ScalableTarget:
+    Type: 'AWS::ApplicationAutoScaling::ScalableTarget'
+    Properties:
+      MaxCapacity: 8
+      MinCapacity: 1
+      RoleARN: 
+        Fn::Sub: 'arn:aws:iam::${AWS::AccountId}:role/aws-service-role/rds.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_RDSCluster'
+      ServiceNamespace: rds
+      ScalableDimension: 'rds:cluster:ReadReplicaCount'
+      ResourceId: 'cluster:my-db-cluster'
+  ScalingPolicyDBCluster:
+    Type: 'AWS::ApplicationAutoScaling::ScalingPolicy'
+    Properties:
+      PolicyName: !Sub ${AWS::StackName}-target-tracking-cpu40
+      PolicyType: TargetTrackingScaling
+      ServiceNamespace: rds
+      ScalableDimension: 'rds:cluster:ReadReplicaCount'
+      ResourceId: 'cluster:my-db-cluster'
+      TargetTrackingScalingPolicyConfiguration:
+        TargetValue: 40
+        PredefinedMetricSpecification:
+          PredefinedMetricType: RDSReaderAverageCPUUtilization
+        ScaleInCooldown: 600
+        ScaleOutCooldown: 300

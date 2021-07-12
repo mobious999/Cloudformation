@@ -1,0 +1,13 @@
+myServerGroup:
+  Type: AWS::AutoScaling::AutoScalingGroup
+  Properties:
+    VPCZoneIdentifier:
+      - !Ref myPublicSubnet1
+      - !Ref myPublicSubnet2
+    LaunchConfigurationName: !Ref mySimpleConfig
+    MinSize: '1'
+    MaxSize: '5'
+    HealthCheckGracePeriod: 300
+    MaxInstanceLifetime: 2592000
+    TargetGroupARNs:
+      - !Ref myTargetGroup

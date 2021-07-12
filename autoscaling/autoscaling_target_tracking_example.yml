@@ -1,0 +1,69 @@
+AWSTemplateFormatVersion: 2010-09-09
+Parameters:
+  AMI:
+    Type: String
+  Subnets:
+    Type: CommaDelimitedList
+  VPC:
+    Type: String
+  CPUPolicyTargetValue:
+    Type: String
+  ALBRequestCountTargetValue:
+    Type: String
+Resources:
+  myLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Subnets: !Ref Subnets
+  myLoadBalancerListener:
+    Type: "AWS::ElasticLoadBalancingV2::Listener"
+    Properties:
+      DefaultActions:
+        - TargetGroupArn: !Ref myTargetGroup
+          Type: forward
+      LoadBalancerArn: !Ref myLoadBalancer
+      Port: 80
+      Protocol: HTTP
+  myTargetGroup:
+    Type: "AWS::ElasticLoadBalancingV2::TargetGroup"
+    Properties:
+      Name: myTargetGroup
+      Port: 80
+      Protocol: HTTP
+      VpcId: !Ref VPC
+  myLaunchConfig:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Properties:
+      ImageId: !Ref AMI
+      InstanceType: t2.large
+  myASG:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      MaxSize: '2'
+      MinSize: '1'
+      VPCZoneIdentifier: !Ref Subnets
+      LaunchConfigurationName: !Ref myLaunchConfig
+      TargetGroupARNs:
+        - !Ref myTargetGroup
+  myCPUPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AutoScalingGroupName: !Ref myASG
+      PolicyType: TargetTrackingScaling
+      TargetTrackingConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ASGAverageCPUUtilization
+        TargetValue: !Ref CPUPolicyTargetValue
+  myALBRequestCountPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AutoScalingGroupName: !Ref myASG
+      PolicyType: TargetTrackingScaling
+      TargetTrackingConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ALBRequestCountPerTarget
+          ResourceLabel: !Join 
+            - '/' 
+            - - !GetAtt myLoadBalancer.LoadBalancerFullName
+              - !GetAtt myTargetGroup.TargetGroupFullName
+        TargetValue: !Ref ALBRequestCountTargetValue

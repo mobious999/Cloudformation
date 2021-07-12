@@ -1,0 +1,17 @@
+CPUAlarm:
+  Type: AWS::CloudWatch::Alarm
+  Properties:
+    AlarmDescription: CPU alarm for my instance
+    AlarmActions:
+    - Ref: "logical name of an AWS::SNS::Topic resource"
+    MetricName: CPUUtilization
+    Namespace: AWS/EC2
+    Statistic: Average
+    Period: '60'
+    EvaluationPeriods: '3'
+    Threshold: '90'
+    ComparisonOperator: GreaterThanThreshold
+    Dimensions:
+    - Name: InstanceId
+      Value:
+        Ref: "logical name of an AWS::EC2::Instance resource"

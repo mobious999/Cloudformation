@@ -1,0 +1,11 @@
+myASG:
+  Type: AWS::AutoScaling::AutoScalingGroup
+  Properties:
+    VPCZoneIdentifier:
+      - subnetIdAz1
+      - subnetIdAz2
+      - subnetIdAz3
+    LaunchConfigurationName: !Ref mySimpleConfig
+    MinSize: '0'
+    MaxSize: '1'
+    DesiredCapacity: '1'

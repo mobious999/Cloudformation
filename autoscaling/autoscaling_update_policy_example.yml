@@ -1,0 +1,20 @@
+myASG:
+  UpdatePolicy:
+    AutoScalingRollingUpdate:
+      MinInstancesInService: '1'
+      MaxBatchSize: '1'
+      PauseTime: PT12M5S
+      WaitOnResourceSignals: true
+      SuspendProcesses:
+        - HealthCheck
+        - ReplaceUnhealthy
+        - AZRebalance
+        - AlarmNotification
+        - ScheduledActions
+  Type: AWS::AutoScaling::AutoScalingGroup
+  Properties:
+    AvailabilityZones: !Ref AZs
+    VPCZoneIdentifier: !Ref Subnets
+    LaunchConfigurationName: !Ref logicalName
+    MaxSize: '5'
+    MinSize: '1'

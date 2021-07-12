@@ -1,0 +1,5 @@
+IPAssoc:
+  Type: AWS::EC2::EIPAssociation
+  Properties:
+    InstanceId: !Ref Logical name of an AWS::EC2::Instance resource
+    EIP: existing Elastic IP Address
