@@ -1,0 +1,21 @@
+Resources:
+  SpotFleetScalableTarget:
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+    Properties:
+      MaxCapacity: 0
+      MinCapacity: 0
+      RoleARN: 
+        Fn::Sub: 'arn:aws:iam::${AWS::AccountId}:role/aws-service-role/ec2.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_EC2SpotFleetRequest'
+      ServiceNamespace: ec2
+      ScalableDimension: 'ec2:spot-fleet-request:TargetCapacity'
+      ResourceId: !Join 
+        - /
+        - - spot-fleet-request
+          - !Ref logicalName
+      ScheduledActions:
+        - EndTime: '2020-12-31T12:00:00.000Z'
+          ScalableTargetAction:
+            MaxCapacity: '20'
+            MinCapacity: '5'
+          ScheduledActionName: First
+          Schedule: 'cron(0 18 * * ? *)'

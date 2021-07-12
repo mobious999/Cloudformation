@@ -1,0 +1,149 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: ""
+Resources:
+  GuardDuty:
+    Type: "AWS::GuardDuty::Detector"
+    Properties:
+      Enable: true
+      DataSources:
+        S3Logs:
+          Enable: true
+  SnsTopic1:
+    Type: "AWS::SNS::Topic"
+    Properties:
+      Subscription:
+        - Endpoint: "email@example.com"
+          Protocol: "email"
+      TopicName: "sns-topic"
+  CwEvent1:
+    Type: "AWS::Events::Rule"
+    Properties:
+      Name: "detect-guardduty-finding"
+      Description: "A CloudWatch Event Rule that triggers on Amazon GuardDuty findings. The Event Rule can be used to trigger notifications or remediative actions using AWS Lambda."
+      State: "ENABLED"
+      Targets:
+        - Arn:
+            Ref: "SnsTopic1"
+          Id: "target-id1"
+      EventPattern:
+        detail-type:
+          - "GuardDuty Finding"
+        source:
+          - "aws.guardduty"
+  SnsTopicPolicyCwEvent1:
+    Type: "AWS::SNS::TopicPolicy"
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Sid: "__default_statement_ID"
+            Effect: "Allow"
+            Principal:
+              AWS: "*"
+            Action:
+              - "SNS:GetTopicAttributes"
+              - "SNS:SetTopicAttributes"
+              - "SNS:AddPermission"
+              - "SNS:RemovePermission"
+              - "SNS:DeleteTopic"
+              - "SNS:Subscribe"
+              - "SNS:ListSubscriptionsByTopic"
+              - "SNS:Publish"
+              - "SNS:Receive"
+            Resource:
+              Ref: "SnsTopic1"
+            Condition:
+              StringEquals:
+                AWS:SourceOwner:
+                  Ref: "AWS::AccountId"
+          - Sid: "TrustCWEToPublishEventsToMyTopic"
+            Effect: "Allow"
+            Principal:
+              Service: "events.amazonaws.com"
+            Action: "sns:Publish"
+            Resource:
+              Ref: "SnsTopic1"
+      Topics:
+        - Ref: "SnsTopic1"
+  ConfigRule1:
+    Type: "AWS::Config::ConfigRule"
+    Properties:
+      ConfigRuleName: "guardduty-enabled-centralized"
+      Scope:
+        ComplianceResourceTypes: []
+      Description: "A Config rule that checks whether Amazon GuardDuty is enabled in your AWS account and region. If you provide an AWS account for centralization, the rule evaluates the Amazon GuardDuty results in the centralized account. The rule is compliant when Amazo..."
+      Source:
+        Owner: "AWS"
+        SourceIdentifier: "GUARDDUTY_ENABLED_CENTRALIZED"
+      MaximumExecutionFrequency: "TwentyFour_Hours"
+  ConfigRule2:
+    Type: "AWS::Config::ConfigRule"
+    Properties:
+      ConfigRuleName: "guardduty_untreated_findings"
+      Scope:
+        ComplianceResourceTypes:
+          - "AWS::::Account"
+      Description: "A config rule that checks whether GuardDuty has untreated findings. The rule is NON_COMPLIANT if the GuardDuty has untreated finding older than X days."
+      InputParameters:
+        daysLowSev: "30"
+        daysMediumSev: "7"
+        daysHighSev: "1"
+      Source:
+        Owner: "CUSTOM_LAMBDA"
+        SourceIdentifier:
+          Fn::GetAtt:
+            - "LambdaFunctionForConfigRule2"
+            - "Arn"
+        SourceDetails:
+          - EventSource: "aws.config"
+            MessageType: "ScheduledNotification"
+            MaximumExecutionFrequency: "TwentyFour_Hours"
+    DependsOn: "LambdaInvokePermissionsConfigRule2"
+  LambdaInvokePermissionsConfigRule2:
+    Type: "AWS::Lambda::Permission"
+    Properties:
+      FunctionName:
+        Fn::GetAtt:
+          - "LambdaFunctionForConfigRule2"
+          - "Arn"
+      Action: "lambda:InvokeFunction"
+      Principal: "config.amazonaws.com"
+  LambdaFunctionForConfigRule2:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      FunctionName: "LambdaForguardduty_untreated_findings"
+      Handler: "index.lambda_handler"
+      Role:
+        Fn::GetAtt:
+          - "LambdaIamRoleConfigRule2"
+          - "Arn"
+      Runtime: "python3.6"
+      Code:
+        S3Bucket:
+          Fn::Sub:
+            - "asecure-cloud-cf-aux-${Region}"
+            - Region:
+                Ref: "AWS::Region"
+        S3Key: "GUARDDUTY_UNTREATED_FINDINGS.zip"
+      Timeout: 300
+    DependsOn: "LambdaIamRoleConfigRule2"
+  LambdaIamRoleConfigRule2:
+    Type: "AWS::IAM::Role"
+    Properties:
+      RoleName: "IAMRoleForguardduty_untreated_findingsWuO"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "lambda.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/AmazonGuardDutyReadOnlyAccess"
+        - "arn:aws:iam::aws:policy/service-role/AWSConfigRulesExecutionRole"
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+      Policies: []
+Parameters: {}
+Metadata: {}
+Conditions: {}

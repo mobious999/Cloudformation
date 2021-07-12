@@ -1,0 +1,27 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: ""
+Resources:
+  PatchBasline:
+    Type: "AWS::SSM::PatchBaseline"
+    Properties:
+      Name: "custom-patch-baseline"
+      Description: "Custom patch baseline"
+      OperatingSystem: "AMAZON_LINUX_2"
+      PatchGroups:
+        - "custom-patch-group"
+      ApprovalRules:
+        PatchRules:
+          - ApproveAfterDays: "7"
+            PatchFilterGroup:
+              PatchFilters:
+                - Key: "PRODUCT"
+                  Values:
+                    - "*"
+                - Key: "CLASSIFICATION"
+                  Values: []
+                - Key: "SEVERITY"
+                  Values: []
+            EnableNonSecurity: false
+Parameters: {}
+Metadata: {}
+Conditions: {}

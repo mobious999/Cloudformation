@@ -1,0 +1,20 @@
+ScalableTarget:
+  Type: AWS::ApplicationAutoScaling::ScalableTarget
+  Properties:
+    MaxCapacity: 0
+    MinCapacity: 0
+    RoleARN: !Join 
+      - ':'
+      - - 'arn:aws:iam:'
+        - !Ref 'AWS::AccountId'
+        - role/aws-service-role/lambda.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_LambdaConcurrency
+    ServiceNamespace: lambda
+    ScalableDimension: lambda:function:ProvisionedConcurrency
+    ResourceId: !Sub function:${logicalName}:BLUE
+    ScheduledActions:
+      - EndTime: '2020-12-31T12:00:00.000Z'
+        ScalableTargetAction:
+          MaxCapacity: '500'
+          MinCapacity: '50'
+        ScheduledActionName: First
+        Schedule: 'cron(0 18 * * ? *)'

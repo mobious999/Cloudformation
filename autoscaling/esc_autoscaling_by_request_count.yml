@@ -1,0 +1,32 @@
+Resources:
+  ECSScalableTarget:
+    Type: AWS::ApplicationAutoScaling::ScalableTarget
+    Properties:
+      MaxCapacity: !Ref MaxCount
+      MinCapacity: !Ref MinCount  
+      RoleARN: 
+        Fn::Sub: 'arn:aws:iam::${AWS::AccountId}:role/aws-service-role/ecs.application-autoscaling.amazonaws.com/AWSServiceRoleForApplicationAutoScaling_ECSService'
+      ServiceNamespace: ecs
+      ScalableDimension: 'ecs:service:DesiredCount'
+      ResourceId: !Join 
+        - /
+        - - service
+          - !Ref myContainerCluster
+          - !GetAtt myService.Name
+  ServiceScalingPolicyALB:
+    Type: AWS::ApplicationAutoScaling::ScalingPolicy
+    Properties:
+      PolicyName: alb-requests-per-target-per-minute
+      PolicyType: TargetTrackingScaling
+      ScalingTargetId: !Ref ECSScalableTarget
+      TargetTrackingScalingPolicyConfiguration:
+        TargetValue: !Ref ALBPolicyTargetValue
+        ScaleInCooldown: 180
+        ScaleOutCooldown: 30
+        DisableScaleIn: true
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ALBRequestCountPerTarget
+          ResourceLabel: !Join 
+            - '/' 
+            - - !GetAtt myLoadBalancer.LoadBalancerFullName
+              - !GetAtt myTargetGroup.TargetGroupFullName
