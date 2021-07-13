@@ -1,0 +1,45 @@
+Description:  This template enables vpc flow logs.  
+
+Resources:  
+  FlowLogs:
+    Type: "AWS::EC2::FlowLog"
+    Properties:
+      ResourceType: "VPC"
+      ResourceId:
+        Ref: "VPC"
+      TrafficType: "ALL"
+      LogDestinationType: "cloud-watch-logs"
+      LogGroupName: "FlowLogs"
+      DeliverLogsPermissionArn:
+        Fn::GetAtt:
+          - "IamRoleForFlowLogs"
+          - "Arn"
+  FlowLogsGroup:
+    Type: "AWS::Logs::LogGroup"
+    Properties:
+      LogGroupName: "FlowLogs"
+  IamRoleForFlowLogs:
+    Type: "AWS::IAM::Role"
+    Properties:
+      RoleName: "iamRoleFlowLogsToCloudWatchLogs"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: ""
+            Effect: "Allow"
+            Principal:
+              Service: "vpc-flow-logs.amazonaws.com"
+            Action: "sts:AssumeRole"
+      Policies:
+        - PolicyName: "allow-access-to-cw-logs"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "logs:CreateLogGroup"
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                  - "logs:DescribeLogGroups"
+                  - "logs:DescribeLogStreams"
+                Resource: "*"
