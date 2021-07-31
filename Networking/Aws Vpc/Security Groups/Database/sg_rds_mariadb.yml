@@ -1,0 +1,24 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: ""
+Resources:
+  SecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: "A security group that allows inbound access to a Maria DB instance."
+      VpcId: "12345"
+      SecurityGroupEgress:
+        - FromPort: -1
+          ToPort: -1
+          IpProtocol: "-1"
+          Description: ""
+          CidrIp: "0.0.0.0/0"
+      SecurityGroupIngress:
+        - FromPort: 3306
+          ToPort: 3306
+          IpProtocol: "tcp"
+          Description: "Allow connections to a MariaDB instance"
+          CidrIp: ""
+      GroupName: "sg_allow_mariadb"
+Parameters: {}
+Metadata: {}
+Conditions: {}

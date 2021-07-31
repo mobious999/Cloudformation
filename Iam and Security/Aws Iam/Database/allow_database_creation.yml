@@ -1,0 +1,22 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: ""
+Resources:
+  IamPolicy:
+    Type: "AWS::IAM::ManagedPolicy"
+    Properties:
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Action:
+              - "rds:CreateDBInstance"
+            Resource: "*"
+            Effect: "Allow"
+            Condition:
+              StringEquals:
+                rds:DatabaseEngine: "mysql"
+                rds:DatabaseClass: "db.t2.micro"
+      Description: "An IAM policy that allows users to only launch RDS instances of a specific instance type and database engine (Default: t2.micro and mysql)."
+      ManagedPolicyName: "allow_rds_creation"
+Parameters: {}
+Metadata: {}
+Conditions: {}

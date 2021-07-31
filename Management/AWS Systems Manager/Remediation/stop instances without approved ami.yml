@@ -1,0 +1,73 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: ""
+Resources:
+  ConfigRule:
+    Type: "AWS::Config::ConfigRule"
+    Properties:
+      ConfigRuleName: "approved-amis-by-id"
+      Scope:
+        ComplianceResourceTypes:
+          - "AWS::EC2::Instance"
+      Description: "Auto remediation configuration to stop or terminate EC2 instances running unapproved AMIs (by AMI ID). Detection uses a managed AWS Config Rule and remediation is with SSM Automation."
+      InputParameters:
+        amiIds: "123456"
+      Source:
+        Owner: "AWS"
+        SourceIdentifier: "APPROVED_AMIS_BY_ID"
+  RemediationForConfigRule:
+    Type: "AWS::Config::RemediationConfiguration"
+    Properties:
+      Automatic: true
+      ConfigRuleName:
+        Ref: "ConfigRule"
+      MaximumAutomaticAttempts: 5
+      RetryAttemptSeconds: 60
+      TargetId: "AWS-StopEC2Instance"
+      TargetType: "SSM_DOCUMENT"
+      TargetVersion: "1"
+      Parameters:
+        AutomationAssumeRole:
+          StaticValue:
+            Values:
+              - Fn::GetAtt:
+                  - "AutoRemediationIamRole"
+                  - "Arn"
+        InstanceId:
+          ResourceValue:
+            Value: "RESOURCE_ID"
+  AutoRemediationIamRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "ec2.amazonaws.com"
+                - "events.amazonaws.com"
+                - "ssm.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AmazonSSMAutomationRole"
+      Policies: []
+  AutomationPassRolePolicy:
+    Type: "AWS::IAM::Policy"
+    Properties:
+      PolicyName: "passAutomationRole"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Action:
+              - "iam:PassRole"
+            Resource:
+              Fn::GetAtt:
+                - "AutoRemediationIamRole"
+                - "Arn"
+      Roles:
+        - Ref: "AutoRemediationIamRole"
+Parameters: {}
+Metadata: {}
+Conditions: {}

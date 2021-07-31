@@ -1,0 +1,18 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Action": [
+                "rds:CreateDBInstance"
+            ],
+            "Resource": "*",
+            "Effect": "Allow",
+            "Condition": {
+                "StringEquals": {
+                    "rds:DatabaseEngine": "mysql",
+                    "rds:DatabaseClass": "db.t2.micro"
+                }
+            }
+        }
+    ]
+}

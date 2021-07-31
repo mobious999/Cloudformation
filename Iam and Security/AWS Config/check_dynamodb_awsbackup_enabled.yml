@@ -1,0 +1,17 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: ""
+Resources:
+  ConfigRule:
+    Type: "AWS::Config::ConfigRule"
+    Properties:
+      ConfigRuleName: "dynamodb-in-backup-plan"
+      Scope:
+        ComplianceResourceTypes: []
+      Description: "A Config rule that checks whether Amazon DynamoDB table is present in AWS Backup plans. The rule is NON_COMPLIANT if DynamoDB tables are not present in any AWS Backup plan."
+      Source:
+        Owner: "AWS"
+        SourceIdentifier: "DYNAMODB_IN_BACKUP_PLAN"
+      MaximumExecutionFrequency: "TwentyFour_Hours"
+Parameters: {}
+Metadata: {}
+Conditions: {}

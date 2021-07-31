@@ -1,0 +1,14 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: ""
+Resources:
+  SecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: "Build a custom security group."
+      VpcId: "1234561234"
+      SecurityGroupEgress: []
+      SecurityGroupIngress: []
+      GroupName: "Template Security Group"
+Parameters: {}
+Metadata: {}
+Conditions: {}

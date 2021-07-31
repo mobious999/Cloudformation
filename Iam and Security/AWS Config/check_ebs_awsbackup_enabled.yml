@@ -1,0 +1,17 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: ""
+Resources:
+  ConfigRule:
+    Type: "AWS::Config::ConfigRule"
+    Properties:
+      ConfigRuleName: "ebs-in-backup-plan"
+      Scope:
+        ComplianceResourceTypes: []
+      Description: "A Config rule that checks if Amazon Elastic Block Store (Amazon EBS) volumes are added in backup plans of AWS Backup. The rule is NON_COMPLIANT if Amazon EBS volumes are not included in backup plans."
+      Source:
+        Owner: "AWS"
+        SourceIdentifier: "EBS_IN_BACKUP_PLAN"
+      MaximumExecutionFrequency: "TwentyFour_Hours"
+Parameters: {}
+Metadata: {}
+Conditions: {}
