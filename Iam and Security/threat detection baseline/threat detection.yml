@@ -1,0 +1,303 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: ""
+Resources:
+  GuardDuty:
+    Type: "AWS::GuardDuty::Detector"
+    Properties:
+      Enable: true
+      DataSources:
+        S3Logs:
+          Enable: true
+  CwEventAutoAssessment:
+    Type: "AWS::Events::Rule"
+    Properties:
+      Name: "InspectorScheduledAssessment"
+      Description: "Scheduled trigger for Amazon Inspector Assessment: "
+      State: "ENABLED"
+      Targets:
+        - Arn:
+            Ref: "AssessmentTemplate"
+          Id: "AmazonInspectorAssessment"
+          RoleArn:
+            Fn::GetAtt:
+              - "AutoAssessmentIamRole"
+              - "Arn"
+      ScheduleExpression: "cron(00 00 ? * SAT *)"
+  AssessmentTarget:
+    Type: "AWS::Inspector::AssessmentTarget"
+    Properties:
+      AssessmentTargetName: "Amazon Inspector Targets"
+  AssessmentTemplate:
+    Type: "AWS::Inspector::AssessmentTemplate"
+    Properties:
+      AssessmentTargetArn:
+        Ref: "AssessmentTarget"
+      DurationInSeconds: 3600
+      RulesPackageArns:
+        - Fn::FindInMap:
+            - "RulePackageArn"
+            - Ref: "AWS::Region"
+            - "CVE"
+  AutoAssessmentIamRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      RoleName: "AWS_InspectorEvents_Invoke_Assessment_TemplatenMb"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "events.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      ManagedPolicyArns: []
+      Policies:
+        - PolicyName: "InspectorAssessmentTrigger"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "inspector:StartAssessmentRun"
+                Resource: "*"
+  SecurityHub:
+    Type: "AWS::SecurityHub::Hub"
+    Properties: {}
+  SnsTopic1:
+    Type: "AWS::SNS::Topic"
+    Properties:
+      Subscription:
+        - Endpoint: "email@example.com"
+          Protocol: "email"
+      TopicName: "sns-topic"
+  CwEvent1:
+    Type: "AWS::Events::Rule"
+    Properties:
+      Name: "detect-securityhub-finding"
+      Description: "A CloudWatch Event Rule that triggers on AWS Security Hub findings. The Event Rule can be used to trigger notifications or remediative actions using AWS Lambda."
+      State: "ENABLED"
+      Targets:
+        - Arn:
+            Ref: "SnsTopic1"
+          Id: "target-id1"
+      EventPattern:
+        detail-type:
+          - "Security Hub Findings - Imported"
+        source:
+          - "aws.securityhub"
+  SnsTopicPolicyCwEvent1:
+    Type: "AWS::SNS::TopicPolicy"
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Sid: "__default_statement_ID"
+            Effect: "Allow"
+            Principal:
+              AWS: "*"
+            Action:
+              - "SNS:GetTopicAttributes"
+              - "SNS:SetTopicAttributes"
+              - "SNS:AddPermission"
+              - "SNS:RemovePermission"
+              - "SNS:DeleteTopic"
+              - "SNS:Subscribe"
+              - "SNS:ListSubscriptionsByTopic"
+              - "SNS:Publish"
+              - "SNS:Receive"
+            Resource:
+              Ref: "SnsTopic1"
+            Condition:
+              StringEquals:
+                AWS:SourceOwner:
+                  Ref: "AWS::AccountId"
+          - Sid: "TrustCWEToPublishEventsToMyTopic"
+            Effect: "Allow"
+            Principal:
+              Service: "events.amazonaws.com"
+            Action: "sns:Publish"
+            Resource:
+              Ref: "SnsTopic1"
+      Topics:
+        - Ref: "SnsTopic1"
+  CwEvent2:
+    Type: "AWS::Events::Rule"
+    Properties:
+      Name: "detect-guardduty-finding"
+      Description: "A CloudWatch Event Rule that triggers on Amazon GuardDuty findings. The Event Rule can be used to trigger notifications or remediative actions using AWS Lambda."
+      State: "ENABLED"
+      Targets:
+        - Arn:
+            Ref: "SnsTopic1"
+          Id: "target-id1"
+      EventPattern:
+        detail-type:
+          - "GuardDuty Finding"
+        source:
+          - "aws.guardduty"
+  SnsTopicPolicyCwEvent2:
+    Type: "AWS::SNS::TopicPolicy"
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Sid: "__default_statement_ID"
+            Effect: "Allow"
+            Principal:
+              AWS: "*"
+            Action:
+              - "SNS:GetTopicAttributes"
+              - "SNS:SetTopicAttributes"
+              - "SNS:AddPermission"
+              - "SNS:RemovePermission"
+              - "SNS:DeleteTopic"
+              - "SNS:Subscribe"
+              - "SNS:ListSubscriptionsByTopic"
+              - "SNS:Publish"
+              - "SNS:Receive"
+            Resource:
+              Ref: "SnsTopic1"
+            Condition:
+              StringEquals:
+                AWS:SourceOwner:
+                  Ref: "AWS::AccountId"
+          - Sid: "TrustCWEToPublishEventsToMyTopic"
+            Effect: "Allow"
+            Principal:
+              Service: "events.amazonaws.com"
+            Action: "sns:Publish"
+            Resource:
+              Ref: "SnsTopic1"
+      Topics:
+        - Ref: "SnsTopic1"
+  ConfigurationRecorder:
+    Type: "AWS::Config::ConfigurationRecorder"
+    Properties:
+      RoleARN:
+        Fn::GetAtt:
+          - "IamRoleForAwsConfig"
+          - "Arn"
+      RecordingGroup:
+        AllSupported: true
+        IncludeGlobalResourceTypes: true
+  DeliveryChannel:
+    Type: "AWS::Config::DeliveryChannel"
+    Properties:
+      S3BucketName:
+        Ref: "S3BucketForAwsConfig"
+  S3BucketForAwsConfig:
+    Type: "AWS::S3::Bucket"
+    Properties: {}
+  IamRoleForAwsConfig:
+    Type: "AWS::IAM::Role"
+    Properties:
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSConfigRole"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: ""
+            Effect: "Allow"
+            Principal:
+              Service: "config.amazonaws.com"
+            Action: "sts:AssumeRole"
+      Policies:
+        - PolicyName: "allow-access-to-config-s3-bucket"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "s3:PutObject"
+                Resource:
+                  - Fn::Join:
+                      - ""
+                      -
+                        - Fn::GetAtt:
+                            - "S3BucketForAwsConfig"
+                            - "Arn"
+                        - "/*"
+                Condition:
+                  StringLike:
+                    s3:x-amz-acl: "bucket-owner-full-control"
+              - Effect: "Allow"
+                Action:
+                  - "s3:GetBucketAcl"
+                Resource:
+                  Fn::GetAtt:
+                    - "S3BucketForAwsConfig"
+                    - "Arn"
+Parameters: {}
+Metadata: {}
+Conditions: {}
+Mappings:
+  RulePackageArn:
+    us-west-2:
+      CVE: "arn:aws:inspector:us-west-2:758058086616:rulespackage/0-9hgA516p"
+      CIS: "arn:aws:inspector:us-west-2:758058086616:rulespackage/0-H5hpSawc"
+      Network: "arn:aws:inspector:us-west-2:758058086616:rulespackage/0-rD1z6dpl"
+      Security: "arn:aws:inspector:us-west-2:758058086616:rulespackage/0-JJOtZiqQ"
+      Runtime: "arn:aws:inspector:us-west-2:758058086616:rulespackage/0-vg5GGHSD"
+    us-east-1:
+      CVE: "arn:aws:inspector:us-east-1:316112463485:rulespackage/0-gEjTy7T7"
+      CIS: "arn:aws:inspector:us-east-1:316112463485:rulespackage/0-rExsr2X8"
+      Network: "arn:aws:inspector:us-east-1:316112463485:rulespackage/0-PmNV0Tcd"
+      Security: "arn:aws:inspector:us-east-1:316112463485:rulespackage/0-R01qwB5Q"
+      Runtime: "arn:aws:inspector:us-east-1:316112463485:rulespackage/0-gBONHN9h"
+    us-east-2:
+      CVE: "arn:aws:inspector:us-east-2:646659390643:rulespackage/0-JnA8Zp85"
+      CIS: "arn:aws:inspector:us-east-2:646659390643:rulespackage/0-m8r61nnh"
+      Network: "arn:aws:inspector:us-east-2:646659390643:rulespackage/0-cE4kTR30"
+      Security: "arn:aws:inspector:us-east-2:646659390643:rulespackage/0-AxKmMHPX"
+      Runtime: "arn:aws:inspector:us-east-2:646659390643:rulespackage/0-UCYZFKPV"
+    us-west-1:
+      CVE: "arn:aws:inspector:us-west-1:166987590008:rulespackage/0-TKgzoVOa"
+      CIS: "arn:aws:inspector:us-west-1:166987590008:rulespackage/0-xUY8iRqX"
+      Network: "arn:aws:inspector:us-west-1:166987590008:rulespackage/0-TxmXimXF"
+      Security: "arn:aws:inspector:us-west-1:166987590008:rulespackage/0-byoQRFYm"
+      Runtime: "arn:aws:inspector:us-west-1:166987590008:rulespackage/0-yeYxlt0x"
+    ap-south-1:
+      CVE: "arn:aws:inspector:ap-south-1:162588757376:rulespackage/0-LqnJE9dO"
+      CIS: "arn:aws:inspector:ap-south-1:162588757376:rulespackage/0-PSUlX14m"
+      Network: "arn:aws:inspector:ap-south-1:162588757376:rulespackage/0-YxKfjFu1"
+      Security: "arn:aws:inspector:ap-south-1:162588757376:rulespackage/0-fs0IZZBj"
+      Runtime: "arn:aws:inspector:ap-south-1:162588757376:rulespackage/0-EhMQZy6C"
+    ap-southeast-2:
+      CVE: "arn:aws:inspector:ap-southeast-2:454640832652:rulespackage/0-D5TGAxiR"
+      CIS: "arn:aws:inspector:ap-southeast-2:454640832652:rulespackage/0-Vkd2Vxjq"
+      Network: "arn:aws:inspector:ap-southeast-2:454640832652:rulespackage/0-FLcuV4Gz"
+      Security: "arn:aws:inspector:ap-southeast-2:454640832652:rulespackage/0-asL6HRgN"
+      Runtime: "arn:aws:inspector:ap-southeast-2:454640832652:rulespackage/0-P8Tel2Xj"
+    ap-northeast-2:
+      CVE: "arn:aws:inspector:ap-northeast-2:526946625049:rulespackage/0-PoGHMznc"
+      CIS: "arn:aws:inspector:ap-northeast-2:526946625049:rulespackage/0-T9srhg1z"
+      Network: "arn:aws:inspector:ap-northeast-2:526946625049:rulespackage/0-s3OmLzhL"
+      Security: "arn:aws:inspector:ap-northeast-2:526946625049:rulespackage/0-2WRpmi4n"
+      Runtime: "arn:aws:inspector:ap-northeast-2:526946625049:rulespackage/0-PoYq7lI7"
+    ap-northeast-1:
+      CVE: "arn:aws:inspector:ap-northeast-1:406045910587:rulespackage/0-gHP9oWNT"
+      CIS: "arn:aws:inspector:ap-northeast-1:406045910587:rulespackage/0-7WNjqgGu"
+      Network: "arn:aws:inspector:ap-northeast-1:406045910587:rulespackage/0-YI95DVd7"
+      Security: "arn:aws:inspector:ap-northeast-1:406045910587:rulespackage/0-bBUQnxMq"
+      Runtime: "arn:aws:inspector:ap-northeast-1:406045910587:rulespackage/0-knGBhqEu"
+    eu-west-1:
+      CVE: "arn:aws:inspector:eu-west-1:357557129151:rulespackage/0-ubA5XvBh"
+      CIS: "arn:aws:inspector:eu-west-1:357557129151:rulespackage/0-sJBhCr0F"
+      Network: "arn:aws:inspector:eu-west-1:357557129151:rulespackage/0-SPzU33xe"
+      Security: "arn:aws:inspector:eu-west-1:357557129151:rulespackage/0-SnojL3Z6"
+      Runtime: "arn:aws:inspector:eu-west-1:357557129151:rulespackage/0-lLmwe1zd"
+    eu-central-1:
+      CVE: "arn:aws:inspector:eu-central-1:537503971621:rulespackage/0-wNqHa8M9"
+      CIS: "arn:aws:inspector:eu-central-1:537503971621:rulespackage/0-nZrAVuv8"
+      Network: "arn:aws:inspector:eu-central-1:537503971621:rulespackage/0-6yunpJ91"
+      Security: "arn:aws:inspector:eu-central-1:537503971621:rulespackage/0-ZujVHEPB"
+      Runtime: "arn:aws:inspector:eu-central-1:537503971621:rulespackage/0-0GMUM6fg"
+    us-gov-east-1:
+      CVE: "arn:aws-us-gov:inspector:us-gov-east-1:206278770380:rulespackage/0-3IFKFuOb"
+      CIS: "arn:aws-us-gov:inspector:us-gov-east-1:206278770380:rulespackage/0-pTLCdIww"
+      Security: "arn:aws-us-gov:inspector:us-gov-east-1:206278770380:rulespackage/0-vlgEGcVD"
+      Runtime: "arn:aws-us-gov:inspector:us-gov-east-1:206278770380:rulespackage/0-850TmCFX"
+    us-gov-west-1:
+      CVE: "arn:aws-us-gov:inspector:us-gov-west-1:850862329162:rulespackage/0-4oQgcI4G"
+      CIS: "arn:aws-us-gov:inspector:us-gov-west-1:850862329162:rulespackage/0-Ac4CFOuc"
+      Security: "arn:aws-us-gov:inspector:us-gov-west-1:850862329162:rulespackage/0-rOTGqe5G"
+      Runtime: "arn:aws-us-gov:inspector:us-gov-west-1:850862329162:rulespackage/0-JMyjuzoW"

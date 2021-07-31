@@ -1,0 +1,10 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: ""
+Resources:
+  AccessAnalyzer:
+    Type: "AWS::AccessAnalyzer::Analyzer"
+    Properties:
+      Type: "ORGANIZATION"
+Parameters: {}
+Metadata: {}
+Conditions: {}
