@@ -1,0 +1,19 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: ""
+Resources:
+  Route53QueryLoggingConfig:
+    Type: "AWS::Route53Resolver::ResolverQueryLoggingConfig"
+    Properties:
+      DestinationArn: "change me to the real arn of the logging destination"
+      Name: "Dns Query Logging"
+  Route53QueryLoggingConfigAssociation:
+    Type: "AWS::Route53Resolver::ResolverQueryLoggingConfigAssociation"
+    Properties:
+      ResolverQueryLogConfigId:
+        Fn::GetAtt:
+          - "Route53QueryLoggingConfig"
+          - "Id"
+      ResourceId: "change to vpc id or input from template"
+Parameters: {}
+Metadata: {}
+Conditions: {}

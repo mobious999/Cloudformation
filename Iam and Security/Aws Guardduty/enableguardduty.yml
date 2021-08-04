@@ -1,0 +1,13 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: ""
+Resources:
+  GuardDuty:
+    Type: "AWS::GuardDuty::Detector"
+    Properties:
+      Enable: true
+      DataSources:
+        S3Logs:
+          Enable: true
+Parameters: {}
+Metadata: {}
+Conditions: {}
