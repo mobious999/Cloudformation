@@ -1,0 +1,23 @@
+SpendingAlarm:
+  Type: AWS::CloudWatch::Alarm
+  Properties:
+    AlarmDescription: 
+      'Fn::Join':
+        - ''
+        - - Alarm if AWS spending is over $
+          - Ref: AlarmThreshold
+    Namespace: AWS/Billing
+    MetricName: EstimatedCharges
+    Dimensions:
+    - Name: Currency
+      Value: USD
+    Statistic: Maximum
+    Period: '21600'
+    EvaluationPeriods: '1'
+    Threshold:
+      Ref: "AlarmThreshold"
+    ComparisonOperator: GreaterThanThreshold
+    AlarmActions:
+    - Ref: "BillingAlarmNotification"
+    InsufficientDataActions:
+    - Ref: "BillingAlarmNotification"
