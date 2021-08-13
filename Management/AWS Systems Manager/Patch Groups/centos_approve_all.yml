@@ -1,0 +1,29 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: ""
+Resources:
+  PatchBasline:
+    Type: "AWS::SSM::PatchBaseline"
+    Properties:
+      Name: "Custom-Patch-Baseline"
+      Description: "Custom Patch Baseline"
+      OperatingSystem: "CENTOS"
+      PatchGroups:
+        - "custom-patch-group"
+      ApprovalRules:
+        PatchRules:
+          - ApproveAfterDays: "7"
+            PatchFilterGroup:
+              PatchFilters:
+                - Key: "PRODUCT"
+                  Values:
+                    - "*"
+                - Key: "CLASSIFICATION"
+                  Values:
+                    - "*"
+                - Key: "SEVERITY"
+                  Values:
+                    - "*"
+            EnableNonSecurity: true
+Parameters: {}
+Metadata: {}
+Conditions: {}

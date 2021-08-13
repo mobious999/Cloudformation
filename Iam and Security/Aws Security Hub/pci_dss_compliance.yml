@@ -1,0 +1,167 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: ""
+Resources:
+  SecurityHub:
+    Type: "AWS::SecurityHub::Hub"
+    Properties: {}
+  SecurityHubStandards:
+    Type: "Custom::SecurityHubStandards"
+    Properties:
+      ServiceToken:
+        Fn::GetAtt:
+          - "SecurityHubStandardsResourceLambda"
+          - "Arn"
+    DependsOn: "SecurityHub"
+  SecurityHubStandardsResourceLambdaRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service: "lambda.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      Path: "/"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+      Policies:
+        - PolicyName: "scp-access"
+          PolicyDocument:
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "securityhub:GetEnabledStandards"
+                  - "securityhub:BatchDisableStandards"
+                  - "securityhub:BatchEnableStandards"
+                Resource: "*"
+  SecurityHubStandardsResourceLambda:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      Code:
+        ZipFile: "'use strict';\nconst AWS = require('aws-sdk');\nconst response = require('./cfn-response');\nconst securityhub = new AWS.SecurityHub();\n\nexports.handler = (event, context, cb) => {\n\n  let region = process.env.AWS_REGION\n  let accountId = context.invokedFunctionArn.split(\":\")[4]\n  console.log('Invoke:', JSON.stringify(event));\n  const done = (err, data) => {\n    if (err) {\n      console.log('Error: ', err);\n      response.send(event, context, response.FAILED, {}, 'CustomResourcePhysicalID');\n    } else {\n      console.log('Data: ', data)\n      response.send(event, context, response.SUCCESS, {}, 'CustomResourcePhysicalID');\n    }\n  };\n\n  if (event.RequestType === 'Create' || event.RequestType === 'Update') {\n    securityhub.batchEnableStandards({\n      StandardsSubscriptionRequests: [\n        {StandardsArn: `arn:aws:securityhub:${region}::standards/pci-dss/v/3.2.1`}\n      ]\n    }, done)\n  }\n  else if (event.RequestType === 'Delete'){\n    securityhub.batchDisableStandards({\n      StandardsSubscriptionArns: [\n        `arn:aws:securityhub:${region}:${accountId}:subscription/pci-dss/v/3.2.1`\n      ]\n    }, done)\n  }\n  else {\n    cb(new Error('unsupported RequestType: ', event.RequestType));\n  }\n};\n"
+      Handler: "index.handler"
+      MemorySize: 128
+      Role:
+        Fn::GetAtt:
+          - "SecurityHubStandardsResourceLambdaRole"
+          - "Arn"
+      Runtime: "nodejs12.x"
+      Timeout: 120
+  ConfigurationRecorder:
+    Type: "AWS::Config::ConfigurationRecorder"
+    Properties:
+      RoleARN:
+        Fn::GetAtt:
+          - "IamRoleForAwsConfig"
+          - "Arn"
+      RecordingGroup:
+        AllSupported: true
+        IncludeGlobalResourceTypes: true
+  DeliveryChannel:
+    Type: "AWS::Config::DeliveryChannel"
+    Properties:
+      S3BucketName:
+        Ref: "S3BucketForAwsConfig"
+  S3BucketForAwsConfig:
+    Type: "AWS::S3::Bucket"
+    Properties: {}
+  IamRoleForAwsConfig:
+    Type: "AWS::IAM::Role"
+    Properties:
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSConfigRole"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: ""
+            Effect: "Allow"
+            Principal:
+              Service: "config.amazonaws.com"
+            Action: "sts:AssumeRole"
+      Policies:
+        - PolicyName: "allow-access-to-config-s3-bucket"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "s3:PutObject"
+                Resource:
+                  - Fn::Join:
+                      - ""
+                      -
+                        - Fn::GetAtt:
+                            - "S3BucketForAwsConfig"
+                            - "Arn"
+                        - "/*"
+                Condition:
+                  StringLike:
+                    s3:x-amz-acl: "bucket-owner-full-control"
+              - Effect: "Allow"
+                Action:
+                  - "s3:GetBucketAcl"
+                Resource:
+                  Fn::GetAtt:
+                    - "S3BucketForAwsConfig"
+                    - "Arn"
+  SnsTopic1:
+    Type: "AWS::SNS::Topic"
+    Properties:
+      Subscription:
+        - Endpoint: "email@example.com"
+          Protocol: "email"
+      TopicName: "sns-topic"
+  CwEvent1:
+    Type: "AWS::Events::Rule"
+    Properties:
+      Name: "detect-securityhub-finding"
+      Description: "A CloudWatch Event Rule that triggers on AWS Security Hub findings. The Event Rule can be used to trigger notifications or remediative actions using AWS Lambda."
+      State: "ENABLED"
+      Targets:
+        - Arn:
+            Ref: "SnsTopic1"
+          Id: "target-id1"
+      EventPattern:
+        detail-type:
+          - "Security Hub Findings - Imported"
+        source:
+          - "aws.securityhub"
+  SnsTopicPolicyCwEvent1:
+    Type: "AWS::SNS::TopicPolicy"
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Sid: "__default_statement_ID"
+            Effect: "Allow"
+            Principal:
+              AWS: "*"
+            Action:
+              - "SNS:GetTopicAttributes"
+              - "SNS:SetTopicAttributes"
+              - "SNS:AddPermission"
+              - "SNS:RemovePermission"
+              - "SNS:DeleteTopic"
+              - "SNS:Subscribe"
+              - "SNS:ListSubscriptionsByTopic"
+              - "SNS:Publish"
+              - "SNS:Receive"
+            Resource:
+              Ref: "SnsTopic1"
+            Condition:
+              StringEquals:
+                AWS:SourceOwner:
+                  Ref: "AWS::AccountId"
+          - Sid: "TrustCWEToPublishEventsToMyTopic"
+            Effect: "Allow"
+            Principal:
+              Service: "events.amazonaws.com"
+            Action: "sns:Publish"
+            Resource:
+              Ref: "SnsTopic1"
+      Topics:
+        - Ref: "SnsTopic1"
+Parameters: {}
+Metadata: {}
+Conditions: {}

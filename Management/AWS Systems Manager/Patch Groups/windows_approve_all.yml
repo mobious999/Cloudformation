@@ -1,0 +1,31 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: ""
+Resources:
+  PatchBasline:
+    Type: "AWS::SSM::PatchBaseline"
+    Properties:
+      Name: "Custom-Patch-Baseline"
+      Description: "Custom Patch Baseline"
+      OperatingSystem: "WINDOWS"
+      PatchGroups:
+        - "custom-patch-group"
+      ApprovalRules:
+        PatchRules:
+          - ApproveAfterDays: "7"
+            PatchFilterGroup:
+              PatchFilters:
+                - Key: "PRODUCT"
+                  Values:
+                    - "*"
+                - Key: "CLASSIFICATION"
+                  Values:
+                    - "*"
+                - Key: "MSRC_SEVERITY"
+                  Values:
+                    - "*"
+                - Key: "PATCH_SET"
+                  Values:
+                    - "OS"
+Parameters: {}
+Metadata: {}
+Conditions: {}

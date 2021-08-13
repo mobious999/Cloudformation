@@ -1,0 +1,1220 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: ""
+Resources:
+  S3SharedBucket:
+    Type: "AWS::S3::Bucket"
+    Properties:
+      LoggingConfiguration: {}
+      AccessControl: "LogDeliveryWrite"
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: "AES256"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+  BucketPolicy:
+    Type: "AWS::S3::BucketPolicy"
+    Properties:
+      Bucket:
+        Ref: "S3SharedBucket"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Principal:
+              Service:
+                - "cloudtrail.amazonaws.com"
+                - "config.amazonaws.com"
+            Action:
+              - "s3:GetBucketAcl"
+            Resource:
+              - Fn::GetAtt:
+                  - "S3SharedBucket"
+                  - "Arn"
+            Effect: "Allow"
+            Condition: {}
+          - Principal:
+              Service:
+                - "cloudtrail.amazonaws.com"
+                - "config.amazonaws.com"
+            Action:
+              - "s3:PutObject"
+            Resource:
+              - Fn::Join:
+                  - ""
+                  -
+                    - ""
+                    - Fn::GetAtt:
+                        - "S3SharedBucket"
+                        - "Arn"
+                    - "/*"
+            Effect: "Allow"
+            Condition:
+              StringEquals:
+                s3:x-amz-acl: "bucket-owner-full-control"
+    DependsOn: "S3SharedBucket"
+  CloudTrail:
+    Type: "AWS::CloudTrail::Trail"
+    Properties:
+      TrailName: "ManagementEventsTrail"
+      IsLogging: true
+      EnableLogFileValidation: true
+      EventSelectors:
+        - IncludeManagementEvents: true
+          ReadWriteType: "All"
+      IsMultiRegionTrail: true
+      IncludeGlobalServiceEvents: true
+      S3BucketName:
+        Ref: "S3SharedBucket"
+      CloudWatchLogsLogGroupArn:
+        Fn::GetAtt:
+          - "CWLogGroupForCloudTrail"
+          - "Arn"
+      CloudWatchLogsRoleArn:
+        Fn::GetAtt:
+          - "IamRoleForCwLogsCloudTrail"
+          - "Arn"
+    DependsOn:
+      - "BucketPolicy"
+  IamRoleForCwLogsCloudTrail:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: ""
+            Effect: "Allow"
+            Principal:
+              Service: "cloudtrail.amazonaws.com"
+            Action: "sts:AssumeRole"
+      Policies:
+        - PolicyName: "allow-access-to-cw-logs"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                Resource: "*"
+  CWLogGroupForCloudTrail:
+    Type: "AWS::Logs::LogGroup"
+    Properties:
+      LogGroupName: "CloudTrailLogs"
+      RetentionInDays: 90
+  ConfigurationRecorder:
+    Type: "AWS::Config::ConfigurationRecorder"
+    Properties:
+      RoleARN:
+        Fn::GetAtt:
+          - "IamRoleForAwsConfig"
+          - "Arn"
+      RecordingGroup:
+        AllSupported: true
+        IncludeGlobalResourceTypes: true
+  DeliveryChannel:
+    Type: "AWS::Config::DeliveryChannel"
+    Properties:
+      S3BucketName:
+        Ref: "S3SharedBucket"
+  IamRoleForAwsConfig:
+    Type: "AWS::IAM::Role"
+    Properties:
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSConfigRole"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: ""
+            Effect: "Allow"
+            Principal:
+              Service: "config.amazonaws.com"
+            Action: "sts:AssumeRole"
+      Policies:
+        - PolicyName: "allow-access-to-config-s3-bucket"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "s3:PutObject"
+                Resource:
+                  - Fn::Join:
+                      - ""
+                      -
+                        - Fn::GetAtt:
+                            - "S3SharedBucket"
+                            - "Arn"
+                        - "/*"
+                Condition:
+                  StringLike:
+                    s3:x-amz-acl: "bucket-owner-full-control"
+              - Effect: "Allow"
+                Action:
+                  - "s3:GetBucketAcl"
+                Resource:
+                  Fn::GetAtt:
+                    - "S3SharedBucket"
+                    - "Arn"
+      RoleName: "iamRoleForAWSConfig"
+  SnsTopic1:
+    Type: "AWS::SNS::Topic"
+    Properties:
+      Subscription:
+        - Endpoint: "email@example.com"
+          Protocol: "email"
+      TopicName: "sns-topic"
+  CwAlarm1:
+    Type: "AWS::CloudWatch::Alarm"
+    Properties:
+      AlarmName: "root_account_login"
+      AlarmDescription: "A CloudWatch Alarm that triggers if a root user uses the account."
+      MetricName: "RootUserEventCount"
+      Namespace: "CloudTrailMetrics"
+      Statistic: "Sum"
+      Period: "60"
+      EvaluationPeriods: "1"
+      Threshold: "1"
+      ComparisonOperator: "GreaterThanOrEqualToThreshold"
+      AlarmActions:
+        - Ref: "SnsTopic1"
+      TreatMissingData: "notBreaching"
+  MetricFilter1:
+    Type: "AWS::Logs::MetricFilter"
+    Properties:
+      LogGroupName:
+        Ref: "CWLogGroupForCloudTrail"
+      FilterPattern: "{ ($.userIdentity.type = \"Root\") && ($.userIdentity.invokedBy NOT EXISTS) && ($.eventType != \"AwsServiceEvent\") }"
+      MetricTransformations:
+        - MetricValue: "1"
+          MetricNamespace: "CloudTrailMetrics"
+          MetricName: "RootUserEventCount"
+  ConfigRule1:
+    Type: "AWS::Config::ConfigRule"
+    Properties:
+      ConfigRuleName: "mfa-enabled-for-iam-console-access"
+      Scope:
+        ComplianceResourceTypes: []
+      Description: "A Config rule that checks whether AWS Multi-Factor Authentication (MFA) is enabled for all AWS Identity and Access Management (IAM) users that use a console password. The rule is COMPLIANT if MFA is enabled."
+      Source:
+        Owner: "AWS"
+        SourceIdentifier: "MFA_ENABLED_FOR_IAM_CONSOLE_ACCESS"
+      MaximumExecutionFrequency: "TwentyFour_Hours"
+    DependsOn:
+      - "ConfigurationRecorder"
+  ConfigRule2:
+    Type: "AWS::Config::ConfigRule"
+    Properties:
+      ConfigRuleName: "iam-user-unused-credentials-check"
+      Scope:
+        ComplianceResourceTypes: []
+      Description: "A config rule that checks whether your AWS Identity and Access Management (IAM) users have passwords or active access keys that have not been used within the specified number of days you provided. Re-evaluating this rule within 4 hours of the first eva..."
+      InputParameters:
+        maxCredentialUsageAge: "90"
+      Source:
+        Owner: "AWS"
+        SourceIdentifier: "IAM_USER_UNUSED_CREDENTIALS_CHECK"
+      MaximumExecutionFrequency: "TwentyFour_Hours"
+    DependsOn:
+      - "ConfigurationRecorder"
+  ConfigRule3:
+    Type: "AWS::Config::ConfigRule"
+    Properties:
+      ConfigRuleName: "access-keys-rotated"
+      Scope:
+        ComplianceResourceTypes: []
+      Description: "A config rule that checks whether the active access keys are rotated within the number of days specified in maxAccessKeyAge. The rule is NON_COMPLIANT if the access keys have not been rotated for more than maxAccessKeyAge number of days."
+      InputParameters:
+        maxAccessKeyAge: "90"
+      Source:
+        Owner: "AWS"
+        SourceIdentifier: "ACCESS_KEYS_ROTATED"
+      MaximumExecutionFrequency: "TwentyFour_Hours"
+    DependsOn:
+      - "ConfigurationRecorder"
+  ConfigRule4:
+    Type: "AWS::Config::ConfigRule"
+    Properties:
+      ConfigRuleName: "iam-password-policy"
+      Scope:
+        ComplianceResourceTypes: []
+      Description: "A Config rule that checks whether the account password policy for IAM users meets the specified requirements."
+      InputParameters:
+        RequireUppercaseCharacters: "true"
+        RequireLowercaseCharacters: "true"
+        RequireSymbols: "true"
+        RequireNumbers: "true"
+        MinimumPasswordLength: "14"
+        PasswordReusePrevention: "24"
+        MaxPasswordAge: "90"
+      Source:
+        Owner: "AWS"
+        SourceIdentifier: "IAM_PASSWORD_POLICY"
+      MaximumExecutionFrequency: "TwentyFour_Hours"
+    DependsOn:
+      - "ConfigurationRecorder"
+  ConfigRule5:
+    Type: "AWS::Config::ConfigRule"
+    Properties:
+      ConfigRuleName: "iam-root-access-key-check"
+      Scope:
+        ComplianceResourceTypes: []
+      Description: "A config rule that checks whether the root user access key is available. The rule is COMPLIANT if the user access key does not exist."
+      Source:
+        Owner: "AWS"
+        SourceIdentifier: "IAM_ROOT_ACCESS_KEY_CHECK"
+      MaximumExecutionFrequency: "TwentyFour_Hours"
+    DependsOn:
+      - "ConfigurationRecorder"
+  ConfigRule6:
+    Type: "AWS::Config::ConfigRule"
+    Properties:
+      ConfigRuleName: "root-account-mfa-enabled"
+      Scope:
+        ComplianceResourceTypes: []
+      Description: "A Config rule that checks whether users of your AWS account require a multi-factor authentication (MFA) device to sign in with root credentials."
+      Source:
+        Owner: "AWS"
+        SourceIdentifier: "ROOT_ACCOUNT_MFA_ENABLED"
+      MaximumExecutionFrequency: "TwentyFour_Hours"
+    DependsOn:
+      - "ConfigurationRecorder"
+  ConfigRule7:
+    Type: "AWS::Config::ConfigRule"
+    Properties:
+      ConfigRuleName: "root-account-hardware-mfa-enabled"
+      Scope:
+        ComplianceResourceTypes: []
+      Description: "A config rule that checks whether your AWS account is enabled to use multi-factor authentication (MFA) hardware device to sign in with root credentials. The rule is NON_COMPLIANT if any virtual MFA devices are permitted for signing in with root credent..."
+      Source:
+        Owner: "AWS"
+        SourceIdentifier: "ROOT_ACCOUNT_HARDWARE_MFA_ENABLED"
+      MaximumExecutionFrequency: "TwentyFour_Hours"
+    DependsOn:
+      - "ConfigurationRecorder"
+  ConfigRule8:
+    Type: "AWS::Config::ConfigRule"
+    Properties:
+      ConfigRuleName: "iam-user-no-policies-check"
+      Scope:
+        ComplianceResourceTypes:
+          - "AWS::IAM::User"
+      Description: "A Config rule that checks that none of your IAM users have policies attached. IAM users must inherit permissions from IAM groups or roles."
+      Source:
+        Owner: "AWS"
+        SourceIdentifier: "IAM_USER_NO_POLICIES_CHECK"
+    DependsOn:
+      - "ConfigurationRecorder"
+  ConfigRule9:
+    Type: "AWS::Config::ConfigRule"
+    Properties:
+      ConfigRuleName: "ec2_iam_instance_roles"
+      Scope:
+        ComplianceResourceTypes:
+          - "AWS::EC2::Instance"
+      Description: "A config rule to help you ensure IAM instance roles are used for AWS resource access from instances."
+      Source:
+        Owner: "CUSTOM_LAMBDA"
+        SourceIdentifier:
+          Fn::GetAtt:
+            - "LambdaFunctionForConfigRule9"
+            - "Arn"
+        SourceDetails:
+          - EventSource: "aws.config"
+            MessageType: "ConfigurationItemChangeNotification"
+          - EventSource: "aws.config"
+            MessageType: "OversizedConfigurationItemChangeNotification"
+    DependsOn:
+      - "ConfigurationRecorder"
+  LambdaInvokePermissionsConfigRule9:
+    Type: "AWS::Lambda::Permission"
+    Properties:
+      FunctionName:
+        Fn::GetAtt:
+          - "LambdaFunctionForConfigRule9"
+          - "Arn"
+      Action: "lambda:InvokeFunction"
+      Principal: "config.amazonaws.com"
+  LambdaFunctionForConfigRule9:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      FunctionName: "LambdaForec2_iam_instance_roles"
+      Handler: "index.lambda_handler"
+      Role:
+        Fn::GetAtt:
+          - "LambdaIamRoleConfigRule9"
+          - "Arn"
+      Runtime: "python2.7"
+      Code:
+        ZipFile:
+          Fn::Join:
+            - "\n"
+            -
+              - ""
+              - "#=================================================================================================="
+              - "          # Function: EvaluateInstanceRoleUse"
+              - "          # Purpose:  Evaluates whether instances use instance roles"
+              - "          #=================================================================================================="
+              - "          import boto3"
+              - "          import json"
+              - "          def evaluate_compliance(config_item, instance_id):"
+              - "            if (config_item['resourceType'] != 'AWS::EC2::Instance'): return 'NOT_APPLICABLE'"
+              - "            if (config_item['configurationItemStatus'] == \"ResourceDeleted\"): return 'NOT_APPLICABLE'"
+              - "            reservations = boto3.client('ec2').describe_instances(InstanceIds=[instance_id])['Reservations']"
+              - "            if (reservations[0]['Instances'][0]['State']['Name']).upper() == 'TERMINATED':"
+              - "              return 'NOT_APPLICABLE'"
+              - "            if reservations and 'IamInstanceProfile' in reservations[0]['Instances'][0]: return 'COMPLIANT'"
+              - "            else: return 'NON_COMPLIANT'"
+              - "          def lambda_handler(event, context):"
+              - "            invoking_event = json.loads(event['invokingEvent'])"
+              - "            compliance_value = 'NOT_APPLICABLE'"
+              - "            instance_id = invoking_event['configurationItem']['resourceId']"
+              - "            compliance_value = evaluate_compliance(invoking_event['configurationItem'], instance_id)"
+              - "            config = boto3.client('config')"
+              - "            response = config.put_evaluations("
+              - "              Evaluations=["
+              - "                {"
+              - "                  'ComplianceResourceType': invoking_event['configurationItem']['resourceType'],"
+              - "                  'ComplianceResourceId': instance_id,"
+              - "                  'ComplianceType': compliance_value,"
+              - "                  'OrderingTimestamp': invoking_event['configurationItem']['configurationItemCaptureTime']"
+              - "                },"
+              - "              ],"
+              - "              ResultToken=event['resultToken']"
+              - "            )"
+              - ""
+      Timeout: 300
+    DependsOn: "LambdaIamRoleConfigRule9"
+  LambdaIamRoleConfigRule9:
+    Type: "AWS::IAM::Role"
+    Properties:
+      RoleName: "IAMRoleForec2_iam_instance_rolesaDj"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "lambda.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/IAMReadOnlyAccess"
+        - "arn:aws:iam::aws:policy/AmazonEC2ReadOnlyAccess"
+        - "arn:aws:iam::aws:policy/service-role/AWSConfigRulesExecutionRole"
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+      Policies: []
+  ConfigRule10:
+    Type: "AWS::Config::ConfigRule"
+    Properties:
+      ConfigRuleName: "iam_support_role"
+      Scope:
+        ComplianceResourceTypes:
+          - "AWS::IAM::User"
+          - "AWS::IAM::Role"
+          - "AWS::IAM::Group"
+      Description: "A config rule to help you ensure a support role has been created to manage incidents with AWS Support."
+      Source:
+        Owner: "CUSTOM_LAMBDA"
+        SourceIdentifier:
+          Fn::GetAtt:
+            - "LambdaFunctionForConfigRule10"
+            - "Arn"
+        SourceDetails:
+          - EventSource: "aws.config"
+            MessageType: "ConfigurationItemChangeNotification"
+          - EventSource: "aws.config"
+            MessageType: "OversizedConfigurationItemChangeNotification"
+    DependsOn:
+      - "ConfigurationRecorder"
+  LambdaInvokePermissionsConfigRule10:
+    Type: "AWS::Lambda::Permission"
+    Properties:
+      FunctionName:
+        Fn::GetAtt:
+          - "LambdaFunctionForConfigRule10"
+          - "Arn"
+      Action: "lambda:InvokeFunction"
+      Principal: "config.amazonaws.com"
+  LambdaFunctionForConfigRule10:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      FunctionName: "LambdaForiam_support_role"
+      Handler: "index.lambda_handler"
+      Role:
+        Fn::GetAtt:
+          - "LambdaIamRoleConfigRule10"
+          - "Arn"
+      Runtime: "python2.7"
+      Code:
+        ZipFile:
+          Fn::Join:
+            - "\n"
+            -
+              - ""
+              - "import boto3"
+              - "          import json"
+              - "          import os"
+              - "          def evaluate_compliance(resource_type):"
+              - "            return_value = 'COMPLIANT'"
+              - "            client = boto3.client('iam')"
+              - "            partition = 'aws'"
+              - "            if (os.environ['AWS_REGION'].find(\"-gov-\") > 0):"
+              - "              partition = 'aws-us-gov'"
+              - "            policy_arn = 'arn:' + partition + ':iam::aws:policy/AWSSupportAccess'"
+              - "            print 'policyarn = ', policy_arn"
+              - "            # If GovCloud, dont evaluate as the Managed Policy 'AWSSupportAccess' doesn't exist"
+              - "            if (policy_arn.find(\"-gov\") > 0):"
+              - "              return 'NOT_APPLICABLE'"
+              - "            # search for all entities that have a specific policy associated: AWSSupportAccess"
+              - "            response = client.list_entities_for_policy(PolicyArn=policy_arn)"
+              - "            if (resource_type) == 'user' and len(response['PolicyUsers']) == 0:"
+              - "              return_value = 'NOT_APPLICABLE'"
+              - "            elif (resource_type) == 'group' and len(response['PolicyGroups']) == 0:"
+              - "              return_value = 'NOT_APPLICABLE'"
+              - "            elif (resource_type) == 'role' and len(response['PolicyRoles']) == 0:"
+              - "              return_value = 'NOT_APPLICABLE'"
+              - "            else:"
+              - "              return_value = 'COMPLIANT'"
+              - "            return return_value"
+              - "          def lambda_handler(event, context):"
+              - "            invoking_event = json.loads(event['invokingEvent'])"
+              - "            config = boto3.client('config')"
+              - "            userAnnotation = 'Atleast one IAM User has the AWSSupportAccess IAM policy assigned'"
+              - "            grpAnnotation = 'Atleast one IAM Group has the AWSSupportAccess IAM policy assigned'"
+              - "            roleAnnotation = 'Atleast one IAM Role has the AWSSupportAccess IAM policy assigned'"
+              - "            userCompliance = evaluate_compliance('user')"
+              - "            groupCompliance = evaluate_compliance('group')"
+              - "            roleCompliance = evaluate_compliance('role')"
+              - "            response = config.put_evaluations("
+              - "              Evaluations=["
+              - "                {"
+              - "                  'ComplianceResourceType': 'AWS::IAM::User',"
+              - "                  'ComplianceResourceId': 'NA',"
+              - "                  'ComplianceType': userCompliance,"
+              - "                  'Annotation': userAnnotation,"
+              - "                  'OrderingTimestamp': invoking_event['notificationCreationTime']"
+              - "                },"
+              - "                {"
+              - "                  'ComplianceResourceType': 'AWS::IAM::Group',"
+              - "                  'ComplianceResourceId': 'NA',"
+              - "                  'ComplianceType': groupCompliance,"
+              - "                  'Annotation': grpAnnotation,"
+              - "                  'OrderingTimestamp': invoking_event['notificationCreationTime']"
+              - "                },"
+              - "                {"
+              - "                  'ComplianceResourceType': 'AWS::IAM::Role',"
+              - "                  'ComplianceResourceId': 'NA',"
+              - "                  'ComplianceType': roleCompliance,"
+              - "                  'Annotation': roleAnnotation,"
+              - "                  'OrderingTimestamp': invoking_event['notificationCreationTime']"
+              - "                }"
+              - "              ],"
+              - "              ResultToken=event['resultToken']"
+              - "            )"
+              - ""
+      Timeout: 300
+    DependsOn: "LambdaIamRoleConfigRule10"
+  LambdaIamRoleConfigRule10:
+    Type: "AWS::IAM::Role"
+    Properties:
+      RoleName: "IAMRoleForiam_support_roleqgK"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "lambda.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/IAMReadOnlyAccess"
+        - "arn:aws:iam::aws:policy/service-role/AWSConfigRulesExecutionRole"
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+      Policies: []
+  ConfigRule11:
+    Type: "AWS::Config::ConfigRule"
+    Properties:
+      ConfigRuleName: "iam-policy-no-statements-with-admin-access"
+      Scope:
+        ComplianceResourceTypes:
+          - "AWS::IAM::Policy"
+      Description: "A config rule that checks whether the default version of AWS Identity and Access Management (IAM) policies do not have administrator access. If any statement has 'Effect': 'Allow' with 'Action': '*' over 'Resource': '*', the rule is NON_COMPLIANT."
+      Source:
+        Owner: "AWS"
+        SourceIdentifier: "IAM_POLICY_NO_STATEMENTS_WITH_ADMIN_ACCESS"
+    DependsOn:
+      - "ConfigurationRecorder"
+  ConfigRule12:
+    Type: "AWS::Config::ConfigRule"
+    Properties:
+      ConfigRuleName: "multi-region-cloud-trail-enabled"
+      Scope:
+        ComplianceResourceTypes: []
+      Description: "A config rule that checks that there is at least one multi-region AWS CloudTrail. The rule is NON_COMPLIANT if the trails do not match inputs parameters."
+      Source:
+        Owner: "AWS"
+        SourceIdentifier: "MULTI_REGION_CLOUD_TRAIL_ENABLED"
+      MaximumExecutionFrequency: "TwentyFour_Hours"
+    DependsOn:
+      - "ConfigurationRecorder"
+  ConfigRule13:
+    Type: "AWS::Config::ConfigRule"
+    Properties:
+      ConfigRuleName: "cloud-trail-log-file-validation-enabled"
+      Scope:
+        ComplianceResourceTypes: []
+      Description: "A config rule that checks whether AWS CloudTrail creates a signed digest file with logs. AWS recommends that the file validation must be enabled on all trails. The rule is NON_COMPLIANT if the validation is not enabled."
+      Source:
+        Owner: "AWS"
+        SourceIdentifier: "CLOUD_TRAIL_LOG_FILE_VALIDATION_ENABLED"
+      MaximumExecutionFrequency: "TwentyFour_Hours"
+    DependsOn:
+      - "ConfigurationRecorder"
+  ConfigRule14:
+    Type: "AWS::Config::ConfigRule"
+    Properties:
+      ConfigRuleName: "cloudtrail_s3_access_logging"
+      Scope:
+        ComplianceResourceTypes:
+          - "AWS::CloudTrail::Trail"
+          - "AWS::S3::Bucket"
+      Description: "A config rule that evaluates whether access logging is enabled on the CloudTrail S3 bucket and the S3 bucket is not publicly accessible."
+      Source:
+        Owner: "CUSTOM_LAMBDA"
+        SourceIdentifier:
+          Fn::GetAtt:
+            - "LambdaFunctionForConfigRule14"
+            - "Arn"
+        SourceDetails:
+          - EventSource: "aws.config"
+            MessageType: "ConfigurationItemChangeNotification"
+          - EventSource: "aws.config"
+            MessageType: "OversizedConfigurationItemChangeNotification"
+    DependsOn:
+      - "ConfigurationRecorder"
+  LambdaInvokePermissionsConfigRule14:
+    Type: "AWS::Lambda::Permission"
+    Properties:
+      FunctionName:
+        Fn::GetAtt:
+          - "LambdaFunctionForConfigRule14"
+          - "Arn"
+      Action: "lambda:InvokeFunction"
+      Principal: "config.amazonaws.com"
+  LambdaFunctionForConfigRule14:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      FunctionName: "LambdaForcloudtrail_s3_access_logging"
+      Handler: "index.lambda_handler"
+      Role:
+        Fn::GetAtt:
+          - "LambdaIamRoleConfigRule14"
+          - "Arn"
+      Runtime: "python2.7"
+      Code:
+        ZipFile:
+          Fn::Join:
+            - "\n"
+            -
+              - ""
+              - "import json"
+              - "import boto3"
+              - "import datetime"
+              - "import time"
+              - "from botocore.exceptions import ClientError"
+              - "def lambda_handler(event, context):"
+              - "  # get the trail for the current region"
+              - "  client_ct = boto3.client('cloudtrail')"
+              - "  for trail in client_ct.describe_trails(includeShadowTrails = False)['trailList']:"
+              - "    annotation = ''"
+              - "    is_publicly_accessible = False"
+              - "    s3_bucket_name = ''"
+              - "    is_compliant = True"
+              - "    # check if the cloudtrail s3 bucket is publicly accessible and logged"
+              - "    if trail['S3BucketName']:"
+              - "      s3_bucket_name = trail['S3BucketName']"
+              - "      client_s=boto3.client('s3')"
+              - "      try:"
+              - "        for grant in client_s.get_bucket_acl(Bucket = s3_bucket_name)['Grants']:"
+              - "          # verify cloudtrail s3 bucket ACL"
+              - "          if grant['Permission'] in ['READ','FULL_CONTROL'] and ('URI' in grant['Grantee'] and ('AuthenticatedUsers' in grant['Grantee']['URI'] or 'AllUsers' in grant['Grantee']['URI'])):"
+              - "            is_publicly_accessible = True"
+              - "        if is_publicly_accessible:"
+              - "          is_compliant = False"
+              - "          annotation = annotation + ' The CloudTrail S3 bucket '{}' is publicly accessible.'.format(s3_bucket_name)"
+              - "        # verify cloudtrail s3 bucket logging"
+              - "        response = client_s.get_bucket_logging(Bucket = s3_bucket_name)"
+              - "        if 'LoggingEnabled' not in response:"
+              - "          is_compliant=False"
+              - "          annotation = annotation + ' The CloudTrail S3 bucket '{}' does not have logging enabled.'.format(s3_bucket_name)"
+              - "      except Exception as ex:"
+              - "        print ex"
+              - "        is_compliant = False"
+              - "        annotation = annotation + ' There was an error looking up CloudTrail S3 bucket '{}'.'.format(s3_bucket_name)"
+              - "    else:"
+              - "      annotation = annotation + ' CloudTrail is not integrated with S3.'"
+              - "    result_token = 'No token found.'"
+              - "    if 'resultToken' in event: result_token = event['resultToken']"
+              - "    evaluations = ["
+              - "      {"
+              - "        'ComplianceResourceType': 'AWS::S3::Bucket',"
+              - "        'ComplianceResourceId': s3_bucket_name,"
+              - "        'ComplianceType': 'COMPLIANT' if is_compliant else 'NON_COMPLIANT',"
+              - "        'OrderingTimestamp': datetime.datetime.now()"
+              - "      }"
+              - "    ]"
+              - "    if is_compliant: annotation = 'Acces logging is enabled on the CloudTrail S3 bucket '{}' and the S3 bucket is not publicly accessible'.format(s3_bucket_name)"
+              - "    if annotation: evaluations[0]['Annotation'] = annotation"
+              - "    config = boto3.client('config')"
+              - "    config.put_evaluations("
+              - "      Evaluations = evaluations,"
+              - "      ResultToken = result_token"
+              - "    )"
+              - ""
+      Timeout: 300
+    DependsOn: "LambdaIamRoleConfigRule14"
+  LambdaIamRoleConfigRule14:
+    Type: "AWS::IAM::Role"
+    Properties:
+      RoleName: "IAMRoleForcloudtrail_s3_access_loggingQvu"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "lambda.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/AWSCloudTrailReadOnlyAccess"
+        - "arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess"
+        - "arn:aws:iam::aws:policy/service-role/AWSConfigRulesExecutionRole"
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+      Policies: []
+  ConfigRule15:
+    Type: "AWS::Config::ConfigRule"
+    Properties:
+      ConfigRuleName: "cloud-trail-cloud-watch-logs-enabled"
+      Scope:
+        ComplianceResourceTypes: []
+      Description: "A config rule that checks whether AWS CloudTrail trails are configured to send logs to Amazon CloudWatch Logs. The trail is NON_COMPLIANT if the CloudWatchLogsLogGroupArn property of the trail is empty."
+      Source:
+        Owner: "AWS"
+        SourceIdentifier: "CLOUD_TRAIL_CLOUD_WATCH_LOGS_ENABLED"
+      MaximumExecutionFrequency: "TwentyFour_Hours"
+    DependsOn:
+      - "ConfigurationRecorder"
+  ConfigRule16:
+    Type: "AWS::Config::ConfigRule"
+    Properties:
+      ConfigRuleName: "cloud-trail-encryption-enabled"
+      Scope:
+        ComplianceResourceTypes: []
+      Description: "A config rule that checks whether AWS CloudTrail is configured to use the server side encryption (SSE) AWS Key Management Service (AWS KMS) customer master key (CMK) encryption. The rule is COMPLIANT if the KmsKeyId is defined."
+      Source:
+        Owner: "AWS"
+        SourceIdentifier: "CLOUD_TRAIL_ENCRYPTION_ENABLED"
+      MaximumExecutionFrequency: "TwentyFour_Hours"
+    DependsOn:
+      - "ConfigurationRecorder"
+  ConfigRule17:
+    Type: "AWS::Config::ConfigRule"
+    Properties:
+      ConfigRuleName: "cmk-backing-key-rotation-enabled"
+      Scope:
+        ComplianceResourceTypes: []
+      Description: "A config rule that checks that key rotation is enabled for each customer master key (CMK). The rule is COMPLIANT, if the key rotation is enabled for specific key object. The rule is not applicable to CMKs that have imported key material."
+      Source:
+        Owner: "AWS"
+        SourceIdentifier: "CMK_BACKING_KEY_ROTATION_ENABLED"
+      MaximumExecutionFrequency: "TwentyFour_Hours"
+    DependsOn:
+      - "ConfigurationRecorder"
+  ConfigRule18:
+    Type: "AWS::Config::ConfigRule"
+    Properties:
+      ConfigRuleName: "vpc-flow-logs-enabled"
+      Scope:
+        ComplianceResourceTypes: []
+      Description: "A config rule that checks whether Amazon Virtual Private Cloud flow logs are found and enabled for Amazon VPC."
+      Source:
+        Owner: "AWS"
+        SourceIdentifier: "VPC_FLOW_LOGS_ENABLED"
+      MaximumExecutionFrequency: "TwentyFour_Hours"
+    DependsOn:
+      - "ConfigurationRecorder"
+  CwAlarm2:
+    Type: "AWS::CloudWatch::Alarm"
+    Properties:
+      AlarmName: "unauthorized_api_calls"
+      AlarmDescription: "A CloudWatch Alarm that triggers if Multiple unauthorized actions or logins attempted."
+      MetricName: "UnauthorizedAttemptCount"
+      Namespace: "CloudTrailMetrics"
+      Statistic: "Sum"
+      Period: "60"
+      EvaluationPeriods: "1"
+      Threshold: "1"
+      ComparisonOperator: "GreaterThanOrEqualToThreshold"
+      AlarmActions:
+        - Ref: "SnsTopic1"
+      TreatMissingData: "notBreaching"
+  MetricFilter2:
+    Type: "AWS::Logs::MetricFilter"
+    Properties:
+      LogGroupName:
+        Ref: "CWLogGroupForCloudTrail"
+      FilterPattern: "{ ($.errorCode = \"*UnauthorizedOperation\") || ($.errorCode = \"AccessDenied*\") }"
+      MetricTransformations:
+        - MetricValue: "1"
+          MetricNamespace: "CloudTrailMetrics"
+          MetricName: "UnauthorizedAttemptCount"
+  CwAlarm3:
+    Type: "AWS::CloudWatch::Alarm"
+    Properties:
+      AlarmName: "no_mfa_console_logins"
+      AlarmDescription: "A CloudWatch Alarm that triggers if there is a Management Console sign-in without MFA."
+      MetricName: "ConsoleSigninWithoutMFA"
+      Namespace: "CloudTrailMetrics"
+      Statistic: "Sum"
+      Period: "60"
+      EvaluationPeriods: "1"
+      Threshold: "1"
+      ComparisonOperator: "GreaterThanOrEqualToThreshold"
+      AlarmActions:
+        - Ref: "SnsTopic1"
+      TreatMissingData: "notBreaching"
+  MetricFilter3:
+    Type: "AWS::Logs::MetricFilter"
+    Properties:
+      LogGroupName:
+        Ref: "CWLogGroupForCloudTrail"
+      FilterPattern: "{($.eventName = \"ConsoleLogin\") && ($.additionalEventData.MFAUsed != \"Yes\") && ($.responseElements.ConsoleLogin != \"Failure\") && ($.additionalEventData.SamlProviderArn NOT EXISTS) }"
+      MetricTransformations:
+        - MetricValue: "1"
+          MetricNamespace: "CloudTrailMetrics"
+          MetricName: "ConsoleSigninWithoutMFA"
+  CwAlarm4:
+    Type: "AWS::CloudWatch::Alarm"
+    Properties:
+      AlarmName: "iam_policy_changes"
+      AlarmDescription: "A CloudWatch Alarm that triggers when changes are made to IAM policies. Events include IAM policy creation/deletion/update operations as well as attaching/detaching policies from IAM users, roles or groups."
+      MetricName: "IAMPolicyEventCount"
+      Namespace: "CloudTrailMetrics"
+      Statistic: "Sum"
+      Period: "300"
+      EvaluationPeriods: "1"
+      Threshold: "1"
+      ComparisonOperator: "GreaterThanOrEqualToThreshold"
+      AlarmActions:
+        - Ref: "SnsTopic1"
+      TreatMissingData: "notBreaching"
+  MetricFilter4:
+    Type: "AWS::Logs::MetricFilter"
+    Properties:
+      LogGroupName:
+        Ref: "CWLogGroupForCloudTrail"
+      FilterPattern: "{($.eventName=DeleteGroupPolicy)||($.eventName=DeleteRolePolicy)||($.eventName=DeleteUserPolicy)||($.eventName=PutGroupPolicy)||($.eventName=PutRolePolicy)||($.eventName=PutUserPolicy)||($.eventName=CreatePolicy)||($.eventName=DeletePolicy)||($.eventName=CreatePolicyVersion)||($.eventName=DeletePolicyVersion)||($.eventName=AttachRolePolicy)||($.eventName=DetachRolePolicy)||($.eventName=AttachUserPolicy)||($.eventName=DetachUserPolicy)||($.eventName=AttachGroupPolicy)||($.eventName=DetachGroupPolicy)}"
+      MetricTransformations:
+        - MetricValue: "1"
+          MetricNamespace: "CloudTrailMetrics"
+          MetricName: "IAMPolicyEventCount"
+  CwAlarm5:
+    Type: "AWS::CloudWatch::Alarm"
+    Properties:
+      AlarmName: "cloudtrail_changes"
+      AlarmDescription: "A CloudWatch Alarm that triggers when changes are made to CloudTrail."
+      MetricName: "CloudTrailEventCount"
+      Namespace: "CloudTrailMetrics"
+      Statistic: "Sum"
+      Period: "300"
+      EvaluationPeriods: "1"
+      Threshold: "1"
+      ComparisonOperator: "GreaterThanOrEqualToThreshold"
+      AlarmActions:
+        - Ref: "SnsTopic1"
+      TreatMissingData: "notBreaching"
+  MetricFilter5:
+    Type: "AWS::Logs::MetricFilter"
+    Properties:
+      LogGroupName:
+        Ref: "CWLogGroupForCloudTrail"
+      FilterPattern: "{ ($.eventName = CreateTrail) || ($.eventName = UpdateTrail) || ($.eventName = DeleteTrail) || ($.eventName = StartLogging) || ($.eventName = StopLogging) }"
+      MetricTransformations:
+        - MetricValue: "1"
+          MetricNamespace: "CloudTrailMetrics"
+          MetricName: "CloudTrailEventCount"
+  CwAlarm6:
+    Type: "AWS::CloudWatch::Alarm"
+    Properties:
+      AlarmName: "failed_console_logins"
+      AlarmDescription: "A CloudWatch Alarm that triggers if there are AWS Management Console authentication failures."
+      MetricName: "ConsoleLoginFailures"
+      Namespace: "CloudTrailMetrics"
+      Statistic: "Sum"
+      Period: "300"
+      EvaluationPeriods: "1"
+      Threshold: "1"
+      ComparisonOperator: "GreaterThanOrEqualToThreshold"
+      AlarmActions:
+        - Ref: "SnsTopic1"
+      TreatMissingData: "notBreaching"
+  MetricFilter6:
+    Type: "AWS::Logs::MetricFilter"
+    Properties:
+      LogGroupName:
+        Ref: "CWLogGroupForCloudTrail"
+      FilterPattern: "{ ($.eventName = ConsoleLogin) && ($.errorMessage = \"Failed authentication\") }"
+      MetricTransformations:
+        - MetricValue: "1"
+          MetricNamespace: "CloudTrailMetrics"
+          MetricName: "ConsoleLoginFailures"
+  CwAlarm7:
+    Type: "AWS::CloudWatch::Alarm"
+    Properties:
+      AlarmName: "disabled_deleted_cmks"
+      AlarmDescription: "A CloudWatch Alarm that triggers if customer created CMKs get disabled or scheduled for deletion."
+      MetricName: "KMSCustomerKeyDeletion"
+      Namespace: "CloudTrailMetrics"
+      Statistic: "Sum"
+      Period: "60"
+      EvaluationPeriods: "1"
+      Threshold: "1"
+      ComparisonOperator: "GreaterThanOrEqualToThreshold"
+      AlarmActions:
+        - Ref: "SnsTopic1"
+      TreatMissingData: "notBreaching"
+  MetricFilter7:
+    Type: "AWS::Logs::MetricFilter"
+    Properties:
+      LogGroupName:
+        Ref: "CWLogGroupForCloudTrail"
+      FilterPattern: "{ ($.eventSource = kms.amazonaws.com) &&  (($.eventName=DisableKey) || ($.eventName=ScheduleKeyDeletion)) }"
+      MetricTransformations:
+        - MetricValue: "1"
+          MetricNamespace: "CloudTrailMetrics"
+          MetricName: "KMSCustomerKeyDeletion"
+  CwAlarm8:
+    Type: "AWS::CloudWatch::Alarm"
+    Properties:
+      AlarmName: "s3_changes"
+      AlarmDescription: "A CloudWatch Alarm that triggers when changes are made to an S3 Bucket."
+      MetricName: "S3BucketActivityEventCount"
+      Namespace: "CloudTrailMetrics"
+      Statistic: "Sum"
+      Period: "300"
+      EvaluationPeriods: "1"
+      Threshold: "1"
+      ComparisonOperator: "GreaterThanOrEqualToThreshold"
+      AlarmActions:
+        - Ref: "SnsTopic1"
+      TreatMissingData: "notBreaching"
+  MetricFilter8:
+    Type: "AWS::Logs::MetricFilter"
+    Properties:
+      LogGroupName:
+        Ref: "CWLogGroupForCloudTrail"
+      FilterPattern: "{ ($.eventSource = s3.amazonaws.com) && (($.eventName = PutBucketAcl) || ($.eventName = PutBucketPolicy) || ($.eventName = PutBucketCors) || ($.eventName = PutBucketLifecycle) || ($.eventName = PutBucketReplication) || ($.eventName = DeleteBucketPolicy) || ($.eventName = DeleteBucketCors) || ($.eventName = DeleteBucketLifecycle) || ($.eventName = DeleteBucketReplication)) }"
+      MetricTransformations:
+        - MetricValue: "1"
+          MetricNamespace: "CloudTrailMetrics"
+          MetricName: "S3BucketActivityEventCount"
+  CwAlarm9:
+    Type: "AWS::CloudWatch::Alarm"
+    Properties:
+      AlarmName: "config_changes"
+      AlarmDescription: "A CloudWatch Alarm that triggers when changes are made to AWS Config."
+      MetricName: "CloudTrailEventCount"
+      Namespace: "CloudTrailMetrics"
+      Statistic: "Sum"
+      Period: "300"
+      EvaluationPeriods: "1"
+      Threshold: "1"
+      ComparisonOperator: "GreaterThanOrEqualToThreshold"
+      AlarmActions:
+        - Ref: "SnsTopic1"
+      TreatMissingData: "notBreaching"
+  MetricFilter9:
+    Type: "AWS::Logs::MetricFilter"
+    Properties:
+      LogGroupName:
+        Ref: "CWLogGroupForCloudTrail"
+      FilterPattern: "{ ($.eventName = PutConfigurationRecorder) || ($.eventName = StopConfigurationRecorder) || ($.eventName = DeleteDeliveryChannel) || ($.eventName = PutDeliveryChannel) }"
+      MetricTransformations:
+        - MetricValue: "1"
+          MetricNamespace: "CloudTrailMetrics"
+          MetricName: "CloudTrailEventCount"
+  CwAlarm10:
+    Type: "AWS::CloudWatch::Alarm"
+    Properties:
+      AlarmName: "securitygroup_changes"
+      AlarmDescription: "A CloudWatch Alarm that triggers when changes are made to Security Groups."
+      MetricName: "SecurityGroupEventCount"
+      Namespace: "CloudTrailMetrics"
+      Statistic: "Sum"
+      Period: "300"
+      EvaluationPeriods: "1"
+      Threshold: "1"
+      ComparisonOperator: "GreaterThanOrEqualToThreshold"
+      AlarmActions:
+        - Ref: "SnsTopic1"
+      TreatMissingData: "notBreaching"
+  MetricFilter10:
+    Type: "AWS::Logs::MetricFilter"
+    Properties:
+      LogGroupName:
+        Ref: "CWLogGroupForCloudTrail"
+      FilterPattern: "{ ($.eventName = AuthorizeSecurityGroupIngress) || ($.eventName = AuthorizeSecurityGroupEgress) || ($.eventName = RevokeSecurityGroupIngress) || ($.eventName = RevokeSecurityGroupEgress) || ($.eventName = CreateSecurityGroup) || ($.eventName = DeleteSecurityGroup) }"
+      MetricTransformations:
+        - MetricValue: "1"
+          MetricNamespace: "CloudTrailMetrics"
+          MetricName: "SecurityGroupEventCount"
+  CwAlarm11:
+    Type: "AWS::CloudWatch::Alarm"
+    Properties:
+      AlarmName: "nacl_changes"
+      AlarmDescription: "A CloudWatch Alarm that triggers when changes are made to Network ACLs."
+      MetricName: "NetworkAclEventCount"
+      Namespace: "CloudTrailMetrics"
+      Statistic: "Sum"
+      Period: "300"
+      EvaluationPeriods: "1"
+      Threshold: "1"
+      ComparisonOperator: "GreaterThanOrEqualToThreshold"
+      AlarmActions:
+        - Ref: "SnsTopic1"
+      TreatMissingData: "notBreaching"
+  MetricFilter11:
+    Type: "AWS::Logs::MetricFilter"
+    Properties:
+      LogGroupName:
+        Ref: "CWLogGroupForCloudTrail"
+      FilterPattern: "{ ($.eventName = CreateNetworkAcl) || ($.eventName = CreateNetworkAclEntry) || ($.eventName = DeleteNetworkAcl) || ($.eventName = DeleteNetworkAclEntry) || ($.eventName = ReplaceNetworkAclEntry) || ($.eventName = ReplaceNetworkAclAssociation) }"
+      MetricTransformations:
+        - MetricValue: "1"
+          MetricNamespace: "CloudTrailMetrics"
+          MetricName: "NetworkAclEventCount"
+  CwAlarm12:
+    Type: "AWS::CloudWatch::Alarm"
+    Properties:
+      AlarmName: "igw_changes"
+      AlarmDescription: "A CloudWatch Alarm that triggers when changes are made to an Internet Gateway in a VPC."
+      MetricName: "GatewayEventCount"
+      Namespace: "CloudTrailMetrics"
+      Statistic: "Sum"
+      Period: "300"
+      EvaluationPeriods: "1"
+      Threshold: "1"
+      ComparisonOperator: "GreaterThanOrEqualToThreshold"
+      AlarmActions:
+        - Ref: "SnsTopic1"
+      TreatMissingData: "notBreaching"
+  MetricFilter12:
+    Type: "AWS::Logs::MetricFilter"
+    Properties:
+      LogGroupName:
+        Ref: "CWLogGroupForCloudTrail"
+      FilterPattern: "{ ($.eventName = CreateCustomerGateway) || ($.eventName = DeleteCustomerGateway) || ($.eventName = AttachInternetGateway) || ($.eventName = CreateInternetGateway) || ($.eventName = DeleteInternetGateway) || ($.eventName = DetachInternetGateway) }"
+      MetricTransformations:
+        - MetricValue: "1"
+          MetricNamespace: "CloudTrailMetrics"
+          MetricName: "GatewayEventCount"
+  CwAlarm13:
+    Type: "AWS::CloudWatch::Alarm"
+    Properties:
+      AlarmName: "vpc_routetable_changes"
+      AlarmDescription: "A CloudWatch Alarm that triggers when changes are made to a VPC's Route Table."
+      MetricName: "VpcRouteTableEventCount"
+      Namespace: "CloudTrailMetrics"
+      Statistic: "Sum"
+      Period: "300"
+      EvaluationPeriods: "1"
+      Threshold: "1"
+      ComparisonOperator: "GreaterThanOrEqualToThreshold"
+      AlarmActions:
+        - Ref: "SnsTopic1"
+      TreatMissingData: "notBreaching"
+  MetricFilter13:
+    Type: "AWS::Logs::MetricFilter"
+    Properties:
+      LogGroupName:
+        Ref: "CWLogGroupForCloudTrail"
+      FilterPattern: "{ ($.eventName = AssociateRouteTable) || ($.eventName = CreateRoute) || ($.eventName = CreateRouteTable) || ($.eventName = DeleteRoute) || ($.eventName = DeleteRouteTable) || ($.eventName = ReplaceRoute) || ($.eventName = ReplaceRouteTableAssociation) || ($.eventName = DisassociateRouteTable) }"
+      MetricTransformations:
+        - MetricValue: "1"
+          MetricNamespace: "CloudTrailMetrics"
+          MetricName: "VpcRouteTableEventCount"
+  CwAlarm14:
+    Type: "AWS::CloudWatch::Alarm"
+    Properties:
+      AlarmName: "vpc_changes"
+      AlarmDescription: "A CloudWatch Alarm that triggers when changes are made to a VPC."
+      MetricName: "VpcEventCount"
+      Namespace: "CloudTrailMetrics"
+      Statistic: "Sum"
+      Period: "300"
+      EvaluationPeriods: "1"
+      Threshold: "1"
+      ComparisonOperator: "GreaterThanOrEqualToThreshold"
+      AlarmActions:
+        - Ref: "SnsTopic1"
+      TreatMissingData: "notBreaching"
+  MetricFilter14:
+    Type: "AWS::Logs::MetricFilter"
+    Properties:
+      LogGroupName:
+        Ref: "CWLogGroupForCloudTrail"
+      FilterPattern: "{ ($.eventName = CreateVpc) || ($.eventName = DeleteVpc) || ($.eventName = ModifyVpcAttribute) || ($.eventName = AcceptVpcPeeringConnection) || ($.eventName = CreateVpcPeeringConnection) || ($.eventName = DeleteVpcPeeringConnection) || ($.eventName = RejectVpcPeeringConnection) || ($.eventName = AttachClassicLinkVpc) || ($.eventName = DetachClassicLinkVpc) || ($.eventName = DisableVpcClassicLink) || ($.eventName = EnableVpcClassicLink) }"
+      MetricTransformations:
+        - MetricValue: "1"
+          MetricNamespace: "CloudTrailMetrics"
+          MetricName: "VpcEventCount"
+  ConfigRule19:
+    Type: "AWS::Config::ConfigRule"
+    Properties:
+      ConfigRuleName: "restricted-ssh"
+      Scope:
+        ComplianceResourceTypes:
+          - "AWS::EC2::SecurityGroup"
+      Description: "A Config rule that checks whether security groups in use do not allow restricted incoming SSH traffic. This rule applies only to IPv4."
+      Source:
+        Owner: "AWS"
+        SourceIdentifier: "INCOMING_SSH_DISABLED"
+    DependsOn:
+      - "ConfigurationRecorder"
+  ConfigRule20:
+    Type: "AWS::Config::ConfigRule"
+    Properties:
+      ConfigRuleName: "restricted-common-ports"
+      Scope:
+        ComplianceResourceTypes:
+          - "AWS::EC2::SecurityGroup"
+      Description: "A Config rule that checks whether security groups in use do not allow restricted incoming TCP traffic to the specified ports. This rule applies only to IPv4."
+      InputParameters:
+        blockedPort1: "20"
+        blockedPort2: "21"
+        blockedPort3: "3389"
+        blockedPort4: "3306"
+        blockedPort5: "4333"
+      Source:
+        Owner: "AWS"
+        SourceIdentifier: "RESTRICTED_INCOMING_TRAFFIC"
+    DependsOn:
+      - "ConfigurationRecorder"
+  ConfigRule21:
+    Type: "AWS::Config::ConfigRule"
+    Properties:
+      ConfigRuleName: "vpc-default-security-group-closed"
+      Scope:
+        ComplianceResourceTypes:
+          - "AWS::EC2::SecurityGroup"
+      Description: "A config rule that checks that the default security group of any Amazon Virtual Private Cloud (VPC) does not allow inbound or outbound traffic. The rule returns NOT_APPLICABLE if the security group is not default. The rule is NON_COMPLIANT if the defau..."
+      Source:
+        Owner: "AWS"
+        SourceIdentifier: "VPC_DEFAULT_SECURITY_GROUP_CLOSED"
+    DependsOn:
+      - "ConfigurationRecorder"
+  ConfigRule22:
+    Type: "AWS::Config::ConfigRule"
+    Properties:
+      ConfigRuleName: "vpc_peering_least_access"
+      Scope:
+        ComplianceResourceTypes:
+          - "AWS::EC2::RouteTable"
+      Description: "A config rule to help you ensure routing tables for VPC peering are 'least access'"
+      Source:
+        Owner: "CUSTOM_LAMBDA"
+        SourceIdentifier:
+          Fn::GetAtt:
+            - "LambdaFunctionForConfigRule22"
+            - "Arn"
+        SourceDetails:
+          - EventSource: "aws.config"
+            MessageType: "ConfigurationItemChangeNotification"
+          - EventSource: "aws.config"
+            MessageType: "OversizedConfigurationItemChangeNotification"
+    DependsOn:
+      - "ConfigurationRecorder"
+  LambdaInvokePermissionsConfigRule22:
+    Type: "AWS::Lambda::Permission"
+    Properties:
+      FunctionName:
+        Fn::GetAtt:
+          - "LambdaFunctionForConfigRule22"
+          - "Arn"
+      Action: "lambda:InvokeFunction"
+      Principal: "config.amazonaws.com"
+  LambdaFunctionForConfigRule22:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      FunctionName: "LambdaForvpc_peering_least_access"
+      Handler: "index.lambda_handler"
+      Role:
+        Fn::GetAtt:
+          - "LambdaIamRoleConfigRule22"
+          - "Arn"
+      Runtime: "python2.7"
+      Code:
+        ZipFile:
+          Fn::Join:
+            - "\n"
+            -
+              - ""
+              - "          #=================================================================================================="
+              - "          # Function: EvaluateVpcPeeringRouteTables"
+              - "          # Purpose:  Evaluates whether VPC route tables are least access"
+              - "          #=================================================================================================="
+              - "          import boto3"
+              - "          import json"
+              - "          def lambda_handler(event, context):"
+              - "            is_compliant = True"
+              - "            invoking_event = json.loads(event['invokingEvent'])"
+              - "            annotation = ''"
+              - "            route_table_id = invoking_event['configurationItem']['resourceId']"
+              - "            #print (json.dumps(boto3.client('ec2').describe_route_tables(RouteTableIds=[route_table_id])))"
+              - "            for route_table in boto3.client('ec2').describe_route_tables(RouteTableIds=[route_table_id])['RouteTables']:"
+              - "              for route in route_table['Routes']:"
+              - "                if 'VpcPeeringConnectionId' in route:"
+              - "                  if int(str(route['DestinationCidrBlock']).split(\"/\", 1)[1]) < 24:"
+              - "                    is_compliant = False"
+              - "                    annotation = 'VPC peered route table has a large CIDR block destination.'"
+              - "              evaluations = ["
+              - "                {"
+              - "                  'ComplianceResourceType': invoking_event['configurationItem']['resourceType'],"
+              - "                  'ComplianceResourceId': route_table_id,"
+              - "                  'ComplianceType': 'COMPLIANT' if is_compliant else 'NON_COMPLIANT',"
+              - "                  'OrderingTimestamp': invoking_event['configurationItem']['configurationItemCaptureTime']"
+              - "                }"
+              - "              ]"
+              - "              if annotation: evaluations[0]['Annotation'] = annotation"
+              - "              response = boto3.client('config').put_evaluations("
+              - "              Evaluations = evaluations,"
+              - "              ResultToken = event['resultToken'])"
+              - ""
+      Timeout: 300
+    DependsOn: "LambdaIamRoleConfigRule22"
+  LambdaIamRoleConfigRule22:
+    Type: "AWS::IAM::Role"
+    Properties:
+      RoleName: "IAMRoleForvpc_peering_least_accessRps"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "lambda.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/AmazonEC2ReadOnlyAccess"
+        - "arn:aws:iam::aws:policy/service-role/AWSConfigRulesExecutionRole"
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+      Policies: []
+Parameters: {}
+Metadata: {}
+Conditions: {}
