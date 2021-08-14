@@ -1,0 +1,13 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: ""
+Resources:
+  NetworkAcl:
+    Type: "AWS::EC2::NetworkAcl"
+    Properties:
+      VpcId: "1234561234"
+      Tags:
+        - Key: "Name"
+          Value: "change my name"
+Parameters: {}
+Metadata: {}
+Conditions: {}
