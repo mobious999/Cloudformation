@@ -223,6 +223,13 @@ Resources:
     Properties:
       RouteTableId: !Ref PrivateRouteTable2
       SubnetId: !Ref PrivateSubnet2
+  
+  NoIngressSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: "no-ingress-sg"
+      GroupDescription: "Security group with no ingress rule"
+      VpcId: !Ref VPC
 
 Outputs:
   VPC:
@@ -258,10 +265,13 @@ Outputs:
     Value: !Ref PrivateSubnet2
 
   DataSubnet1:
-    Description: A reference to the private subnet in the 1st Availability Zone
+    Description: A reference to the Data subnet in the 1st Availability Zone
     Value: !Ref DataSubnet1
 
   DataSubnet2:
-    Description: A reference to the private subnet in the 2nd Availability Zone
+    Description: A reference to the Data subnet in the 2nd Availability Zone
     Value: !Ref DataSubnet2
 
+  NoIngressSecurityGroup:
+    Description: Security group with no ingress rule
+    Value: !Ref NoIngressSecurityGroup

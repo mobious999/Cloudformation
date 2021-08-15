@@ -355,35 +355,35 @@ Outputs:
     Value: !Join [ ",", [ !Ref PrivateSubnet1, !Ref PrivateSubnet2, !Ref PrivateSubnet3, !Ref PrivateSubnet4 ]]
 
   PublicSubnet1:
-    Description: A reference to the public subnet in the 1st Availability Zone
+    Description: A reference to the public subnet in the First Availability Zone
     Value: !Ref PublicSubnet1
 
   PublicSubnet2:
-    Description: A reference to the public subnet in the 2nd Availability Zone
+    Description: A reference to the public subnet in the Second Availability Zone
     Value: !Ref PublicSubnet2
 
   PublicSubnet3:
-    Description: A reference to the public subnet in the 2nd Availability Zone
+    Description: A reference to the public subnet in the Third Availability Zone
     Value: !Ref PublicSubnet3
 
   PublicSubnet4:
-    Description: A reference to the public subnet in the 2nd Availability Zone
+    Description: A reference to the public subnet in the Fourth Availability Zone
     Value: !Ref PublicSubnet4
 
   PrivateSubnet1:
-    Description: A reference to the private subnet in the 1st Availability Zone
+    Description: A reference to the private subnet in the First Availability Zone
     Value: !Ref PrivateSubnet1
 
   PrivateSubnet2:
-    Description: A reference to the private subnet in the 2nd Availability Zone
+    Description: A reference to the private subnet in the Second Availability Zone
     Value: !Ref PrivateSubnet2
 
   PrivateSubnet3:
-    Description: A reference to the private subnet in the 2nd Availability Zone
+    Description: A reference to the private subnet in the Third Availability Zone
     Value: !Ref PrivateSubnet3
 
   PrivateSubnet4:
-    Description: A reference to the private subnet in the 2nd Availability Zone
+    Description: A reference to the private subnet in the Fourth Availability Zone
     Value: !Ref PrivateSubnet4
 
   NoIngressSecurityGroup:
