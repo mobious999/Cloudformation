@@ -1,0 +1,34 @@
+Resources:
+  Websecuritygroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: "A security group that allows inbound web traffic (TCP ports 80 and 443)."
+      VpcId: 
+        !ImportValue VPCID
+      SecurityGroupEgress:
+        - FromPort: -1
+          ToPort: -1
+          IpProtocol: "-1"
+          Description: ""
+          CidrIp: "0.0.0.0/0"
+      SecurityGroupIngress:
+        - FromPort: 80
+          ToPort: 80
+          IpProtocol: "tcp"
+          Description: "Allow HTTP traffic"
+          CidrIp: 
+            !ImportValue PrivateSubnet1
+        - FromPort: 443
+          ToPort: 443
+          IpProtocol: "tcp"
+          Description: "Allow HTTPS traffic"
+          CidrIp: 
+            !ImportValue PrivateSubnet1
+      GroupName: "allow-web-traffic"
+
+Outputs:
+  StackSSHSecurityGroup:
+    Description: The Web Security Group for Instances
+    Value: !Ref Websecuritygroup
+    Export:
+      Name: websecuritygroup      

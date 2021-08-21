@@ -1,0 +1,252 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Create ALB, ALB security group, target groups, listeners and listener rules"
+Parameters:
+    VPC:
+        Type: String
+        Description: The vpc to launch the service
+        Default: vpc-ID
+
+    PublicSubnet1:
+        Type: String
+        Description: The subnet where to launch the service
+        Default: subnet-ID
+
+    PublicSubnet2:
+        Type: String
+        Description: the subnet where to Launch the service
+        Default: subnet-ID
+
+Resources:            
+    ALBSecurityGroup:
+        Type: "AWS::EC2::SecurityGroup"
+        Properties:
+            GroupDescription: "security group for ALB"
+            GroupName: "test-ALB-SG"
+            Tags: 
+              - 
+                Key: "Project"
+                Value: "test-blog"
+              - 
+                Key: "createdBy"
+                Value: "Maureen Barasa"
+              - 
+                Key: "Environment"
+                Value: "test"
+              - 
+                Key: "Name"
+                Value: "test-ALB-SG"
+            VpcId: !Ref VPC
+            SecurityGroupIngress: 
+              - 
+                CidrIp: "0.0.0.0/0"
+                FromPort: 80
+                IpProtocol: "tcp"
+                ToPort: 80
+              - 
+                CidrIp: "0.0.0.0/0"
+                FromPort: 443
+                IpProtocol: "tcp"
+                ToPort: 443
+    
+    ApplicationLoadBalancer:
+        Type: "AWS::ElasticLoadBalancingV2::LoadBalancer"
+        Properties:
+            Name: "test-Application-Load-Balancer"
+            Scheme: "internet-facing"
+            Type: "application"
+            Subnets: 
+              - !Ref PublicSubnet1
+              - !Ref PublicSubnet2
+            SecurityGroups: 
+              - !Ref ALBSecurityGroup
+            IpAddressType: "ipv4"
+            LoadBalancerAttributes: 
+              - 
+                Key: "access_logs.s3.enabled"
+                Value: "false"
+              - 
+                Key: "idle_timeout.timeout_seconds"
+                Value: "60"
+              - 
+                Key: "deletion_protection.enabled"
+                Value: "false"
+              - 
+                Key: "routing.http2.enabled"
+                Value: "true"
+              - 
+                Key: "routing.http.drop_invalid_header_fields.enabled"
+                Value: "false"
+
+    HTTPSListener:
+        Type: "AWS::ElasticLoadBalancingV2::Listener"
+        Properties:
+            LoadBalancerArn: !Ref ApplicationLoadBalancer
+            Port: 443
+            Protocol: "HTTPS"
+            SslPolicy: "ELBSecurityPolicy-2016-08"
+            Certificates: 
+              - 
+                CertificateArn: arn:aws:acm:eu-central-1:**************:certificate/*********************
+                
+            DefaultActions: 
+              - 
+                Order: 1
+                TargetGroupArn: !Ref Test1TargetGroup
+                Type: "forward"
+
+    HTTPListener:
+        Type: "AWS::ElasticLoadBalancingV2::Listener"
+        Properties:
+            LoadBalancerArn: !Ref ApplicationLoadBalancer
+            Port: 80
+            Protocol: "HTTP"
+            DefaultActions: 
+              - 
+                Order: 1
+                RedirectConfig: 
+                    Protocol: "HTTPS"
+                    Port: "443"
+                    Host: "#{host}"
+                    Path: "/#{path}"
+                    Query: "#{query}"
+                    StatusCode: "HTTP_301"
+                Type: "redirect"
+                
+    Test1TargetGroup:
+        Type: "AWS::ElasticLoadBalancingV2::TargetGroup"
+        Properties:
+            HealthCheckIntervalSeconds: 30
+            HealthCheckPath: "/"
+            Port: 80
+            Protocol: "HTTP"
+            HealthCheckPort: "traffic-port"
+            HealthCheckProtocol: "HTTP"
+            HealthCheckTimeoutSeconds: 5
+            UnhealthyThresholdCount: 2
+            TargetType: "instance"
+            Matcher: 
+                HttpCode: "200"
+            HealthyThresholdCount: 5
+            VpcId: !Ref VPC
+            Name: "target-group-1"
+            HealthCheckEnabled: true
+            TargetGroupAttributes: 
+              - 
+                Key: "stickiness.enabled"
+                Value: "false"
+              - 
+                Key: "deregistration_delay.timeout_seconds"
+                Value: "300"
+              - 
+                Key: "stickiness.type"
+                Value: "lb_cookie"
+              - 
+                Key: "stickiness.lb_cookie.duration_seconds"
+                Value: "86400"
+              - 
+                Key: "slow_start.duration_seconds"
+                Value: "0"
+              - 
+                Key: "load_balancing.algorithm.type"
+                Value: "round_robin"
+
+    Test2TargetGroup:
+        Type: "AWS::ElasticLoadBalancingV2::TargetGroup"
+        Properties:
+            HealthCheckIntervalSeconds: 30
+            HealthCheckPath: "/"
+            Port: 80
+            Protocol: "HTTP"
+            HealthCheckPort: "traffic-port"
+            HealthCheckProtocol: "HTTP"
+            HealthCheckTimeoutSeconds: 5
+            UnhealthyThresholdCount: 2
+            TargetType: "instance"
+            Matcher: 
+                HttpCode: "200"
+            HealthyThresholdCount: 5
+            VpcId: !Ref VPC
+            Name: "target-group-2"
+            HealthCheckEnabled: true
+            TargetGroupAttributes: 
+              - 
+                Key: "stickiness.enabled"
+                Value: "false"
+              - 
+                Key: "deregistration_delay.timeout_seconds"
+                Value: "300"
+              - 
+                Key: "stickiness.type"
+                Value: "lb_cookie"
+              - 
+                Key: "stickiness.lb_cookie.duration_seconds"
+                Value: "86400"
+              - 
+                Key: "slow_start.duration_seconds"
+                Value: "0"
+              - 
+                Key: "load_balancing.algorithm.type"
+                Value: "round_robin"
+               
+    TestListenerRule1:
+        Type: "AWS::ElasticLoadBalancingV2::ListenerRule"
+        Properties:
+            Priority: "1"
+            ListenerArn: !Ref HTTPSListener
+            Conditions: 
+              - 
+                Field: "host-header"
+                Values: 
+                  - "test1.blog.avrcr.com"
+            Actions: 
+              - 
+                Type: "forward"
+                TargetGroupArn: !Ref Test1TargetGroup
+                Order: 1
+                ForwardConfig: 
+                    TargetGroups: 
+                      - 
+                        TargetGroupArn: !Ref Test1TargetGroup
+                        Weight: 1
+                    TargetGroupStickinessConfig: 
+                        Enabled: false
+
+    TestListenerRule2:
+        Type: "AWS::ElasticLoadBalancingV2::ListenerRule"
+        Properties:
+            Priority: "2"
+            ListenerArn: !Ref HTTPSListener
+            Conditions: 
+              - 
+                Field: "host-header"
+                Values: 
+                  - "test2.blog.com"
+            Actions: 
+              - 
+                Type: "forward"
+                TargetGroupArn: !Ref Test2TargetGroup
+                Order: 1
+                ForwardConfig: 
+                    TargetGroups: 
+                      - 
+                        TargetGroupArn: !Ref Test2TargetGroup
+                        Weight: 1
+                    TargetGroupStickinessConfig: 
+                        Enabled: false
+
+Outputs:        
+    ALB:
+        Description: The created loadbalancer
+        Value: !Ref ApplicationLoadBalancer
+
+    TargetGroup1:
+        Description: The created TargetGroup 1
+        Value: !Ref Test1TargetGroup
+
+    TargetGroup2:
+        Description: The created TargetGroup 2
+        Value: !Ref Test2TargetGroup
+
+    LoadBalancerSecurityGroup:
+        Description: the securty group for the ALB
+        Value: !Ref ALBSecurityGroup

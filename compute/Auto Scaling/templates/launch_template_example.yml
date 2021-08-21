@@ -1,0 +1,19 @@
+  DeployAppLaunchConfig:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Properties:
+      ImageId: ami-0ff760d16d9497662
+      InstanceType: t2.micro
+      KeyName: !Ref KeyPairName
+      SecurityGroups:
+        - !Ref PrivateHostSecurityGroup
+      UserData:
+        Fn::Base64:
+          Fn::Sub: |
+            #!/bin/bash -xe
+            # Add EPEL repository
+            yum install epel-release
+            # Install Nginx
+            yum install nginx
+            # Enable and start service
+            systemctl enable nginx
+            systemctl start nginx
