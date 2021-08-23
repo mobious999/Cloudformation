@@ -496,3 +496,9 @@ Outputs:
     Value: !Ref DataSubnet4
     Export:
       Name: DataSubnet4
+  
+  EnvironmentName:
+    Description: A reference to the private subnet in the 1st Availability Zone
+    Value: !Ref EnvironmentName
+    Export:
+      Name: Environment

@@ -313,3 +313,9 @@ Outputs:
     Value: !Ref PrivateSubnet3
     Export:
       Name: PrivateSubnet3
+
+  EnvironmentName:
+    Description: A reference to the private subnet in the 1st Availability Zone
+    Value: !Ref EnvironmentName
+    Export:
+      Name: Environment

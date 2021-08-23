@@ -1,5 +1,4 @@
-Description:  This template deploys a VPC, 2 Public and 2 Private Subnets with Igw and Nat Gateways.
-
+Description:  This template deploys a VPC, 1 Public and 1 Private Subnets with Igw and Nat Gateways.
 Parameters:
   EnvironmentName:
     Description: An environment name that is prefixed to resource names
@@ -139,3 +138,9 @@ Outputs:
     Value: !Ref PrivateSubnet1CIDR
     Export:
       Name: PrivateSubnet1
+
+  EnvironmentName:
+    Description: A reference to the private subnet in the 1st Availability Zone
+    Value: !Ref EnvironmentName
+    Export:
+      Name: Environment
