@@ -24,11 +24,11 @@ Resources:
           Description: "Allow HTTPS traffic"
           CidrIp: 
             !ImportValue PrivateSubnet1
-      GroupName: "allow-web-traffic"
+      GroupName: "allow-web-traffic-AZ1"
 
 Outputs:
   StackWebSecurityGroup:
     Description: The Web Security Group for Instances
     Value: !Ref Websecuritygroup
     Export:
-      Name: websecuritygroup
+      Name: websecuritygroup-AZ1

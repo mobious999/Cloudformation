@@ -399,19 +399,24 @@ Resources:
       RouteTableId: !Ref PrivateRouteTable4
       SubnetId: !Ref PrivateSubnet4
 
-  NoIngressSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupName: "no-ingress-sg"
-      GroupDescription: "Security group with no ingress rule"
-      VpcId: !Ref VPC
-
 Outputs:
+  EnvironmentName:
+    Description: A reference the environement the vpc was built for
+    Value: !Ref EnvironmentName
+    Export:
+      Name: Environment
+
   VPC:
     Description: A reference to the created VPC
     Value: !Ref VPC
     Export:
       Name: VPCID
+
+  VPCCIDR:
+    Description: The VPC IPv4 Subnet
+    Value: !GetAtt VPC.CidrBlock
+    Export:
+      Name: VPCIDR
 
   PublicSubnets:
     Description: A list of the public subnets
@@ -425,80 +430,74 @@ Outputs:
     Description: A list of the private subnets
     Value: !Join [ ",", [ !Ref DataSubnet1, !Ref DataSubnet2, !Ref DataSubnet3, !Ref DataSubnet4 ]]
 
-  PublicSubnet1:
+  PublicSubnetid1:
     Description: A reference to the public subnet in the 1st Availability Zone
     Value: !Ref PublicSubnet1
     Export:
       Name: PublicSubnet1
 
-  PublicSubnet2:
+  PublicSubnetid2:
     Description: A reference to the public subnet in the 2nd Availability Zone
     Value: !Ref PublicSubnet2
     Export:
       Name: PublicSubnet2
 
-  PublicSubnet3:
+  PublicSubnetid3:
     Description: A reference to the public subnet in the 3rd Availability Zone
     Value: !Ref PublicSubnet3
     Export:
       Name: PublicSubnet3
 
-  PublicSubnet4:
+  PublicSubnetid4:
     Description: A reference to the public subnet in the 4th Availability Zone
     Value: !Ref PublicSubnet4
     Export:
       Name: PublicSubnet4
 
-  PrivateSubnet1:
+  PrivateSubnetid1:
     Description: A reference to the private subnet in the 1st Availability Zone
     Value: !Ref PrivateSubnet1
     Export:
       Name: PrivateSubnet1
 
-  PrivateSubnet2:
+  PrivateSubnetid2:
     Description: A reference to the private subnet in the 2nd Availability Zone
     Value: !Ref PrivateSubnet2
     Export:
       Name: PrivateSubnet2
 
-  PrivateSubnet3:
+  PrivateSubnetid3:
     Description: A reference to the private subnet in the 3rd Availability Zone
     Value: !Ref PrivateSubnet3
     Export:
       Name: PrivateSubnet3
 
-  PrivateSubnet4:
+  PrivateSubnetid4:
     Description: A reference to the private subnet in the 4th Availability Zone
     Value: !Ref PrivateSubnet4
     Export:
       Name: PrivateSubnet4
 
-  DataSubnet1:
+  DataSubnetid1:
     Description: A reference to the Data subnet in the 1st Availability Zone
     Value: !Ref DataSubnet1
     Export:
       Name: DataSubnet1
 
-  DataSubnet2:
+  DataSubnetid2:
     Description: A reference to the Data subnet in the 2nd Availability Zone
     Value: !Ref DataSubnet2
     Export:
       Name: DataSubnet2
 
-  DataSubnet3:
+  DataSubnetid3:
     Description: A reference to the Data subnet in the 3rd Availability Zone
     Value: !Ref DataSubnet3
     Export:
       Name: DataSubnet3
 
-  DataSubnet4:
+  DataSubnetid4:
     Description: A reference to the Data subnet in the 4th Availability Zone
     Value: !Ref DataSubnet4
     Export:
       Name: DataSubnet4
-  
-  EnvironmentName:
-    Description: A reference to the private subnet in the 1st Availability Zone
-    Value: !Ref EnvironmentName
-    Export:
-      Name: Environment

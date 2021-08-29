@@ -40,8 +40,8 @@ Resources:
             Scheme: "internet-facing"
             Type: "application"
             Subnets: 
-              - !ImportValue PublicSubnet1
-              - !ImportValue PublicSubnet2
+              - !ImportValue PublicSubnetid1
+              - !ImportValue PublicSubnetid2
             SecurityGroups: 
               - !Ref ALBSecurityGroup
             IpAddressType: "ipv4"

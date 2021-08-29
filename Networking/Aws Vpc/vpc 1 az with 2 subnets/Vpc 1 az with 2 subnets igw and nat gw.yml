@@ -121,26 +121,32 @@ Resources:
       SubnetId: !Ref PrivateSubnet1
 
 Outputs:
+  EnvironmentName:
+    Description: A reference the environement the vpc was built for
+    Value: !Ref EnvironmentName
+    Export:
+      Name: Environment
+
   VPC:
     Description: A reference to the created VPC
     Value: !Ref VPC
     Export:
       Name: VPCID
 
-  PublicSubnet1:
+  VPCCIDR:
+    Description: The VPC IPv4 Subnet
+    Value: !GetAtt VPC.CidrBlock
+    Export:
+      Name: VPCIDR
+
+  PublicSubnetid1:
     Description: A reference to the public subnet in the 1st Availability Zone
-    Value: !Ref PublicSubnet1CIDR
+    Value: !Ref PublicSubnet1
     Export:
       Name: PublicSubnet1
 
-  PrivateSubnet1:
+  PrivateSubnetid1:
     Description: A reference to the private subnet in the 1st Availability Zone
-    Value: !Ref PrivateSubnet1CIDR
+    Value: !Ref PrivateSubnet1
     Export:
       Name: PrivateSubnet1
-
-  EnvironmentName:
-    Description: A reference to the private subnet in the 1st Availability Zone
-    Value: !Ref EnvironmentName
-    Export:
-      Name: Environment

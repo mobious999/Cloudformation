@@ -1,11 +1,12 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: "A security group to allow active directory communication"
 Resources:
-  SecurityGroup:
+  ADSecurityGroup:
     Type: "AWS::EC2::SecurityGroup"
     Properties:
       GroupDescription: "A security group that allows domain controller services on Microsoft Active Directory servers."
-      VpcId: ""
+      VpcId: 
+        !ImportValue VPCID
       SecurityGroupEgress:
         - FromPort: -1
           ToPort: -1
@@ -17,68 +18,85 @@ Resources:
           ToPort: 9389
           IpProtocol: "tcp"
           Description: "Active Directory Web Services (ADWS) / Active Directory Management Gateway Service"
-          CidrIp: ""
+          CidrIp: 
+            !ImportValue PrivateSubnet2
         - FromPort: 3269
           ToPort: 3269
           IpProtocol: "tcp"
           Description: "Global Catalog"
-          CidrIp: ""
+          CidrIp: 
+            !ImportValue PrivateSubnet2
         - FromPort: 3268
           ToPort: 3268
           IpProtocol: "tcp"
           Description: "Global Catalog"
-          CidrIp: ""
+          CidrIp: 
+            !ImportValue PrivateSubnet2
         - FromPort: -1
           ToPort: -1
           IpProtocol: "icmp"
           Description: "ICMP"
-          CidrIp: ""
+          CidrIp: 
+            !ImportValue PrivateSubnet2
         - FromPort: 389
           ToPort: 389
           IpProtocol: "tcp"
           Description: "LDAP Server"
-          CidrIp: ""
+          CidrIp: 
+            !ImportValue PrivateSubnet2
         - FromPort: 389
           ToPort: 389
           IpProtocol: "udp"
           Description: "LDAP Server"
-          CidrIp: ""
+          CidrIp: 
+            !ImportValue PrivateSubnet2
         - FromPort: 636
           ToPort: 636
           IpProtocol: "tcp"
           Description: "LDAP Server (SSL)"
-          CidrIp: ""
+          CidrIp: 
+            !ImportValue PrivateSubnet2
         - FromPort: 445
           ToPort: 445
           IpProtocol: "tcp"
           Description: "SMB"
-          CidrIp: ""
+          CidrIp: 
+            !ImportValue PrivateSubnet2
         - FromPort: 135
           ToPort: 135
           IpProtocol: "tcp"
           Description: "RPC"
-          CidrIp: ""
+          CidrIp: 
+            !ImportValue PrivateSubnet2
         - FromPort: 1024
           ToPort: 5000
           IpProtocol: "tcp"
           Description: "RPC randomly allocated tcp high ports"
-          CidrIp: ""
+          CidrIp: 
+            !ImportValue PrivateSubnet2
         - FromPort: 49152
           ToPort: 65535
           IpProtocol: "tcp"
           Description: "RPC randomly allocated tcp high ports"
-          CidrIp: ""
+          CidrIp: 
+            !ImportValue PrivateSubnet2
         - FromPort: 500
           ToPort: 500
           IpProtocol: "udp"
           Description: "IPSec ISAKMP"
-          CidrIp: ""
+          CidrIp: 
+            !ImportValue PrivateSubnet2
         - FromPort: 4500
           ToPort: 4500
           IpProtocol: "udp"
           Description: "NAT-T"
-          CidrIp: ""
-      GroupName: "sg_active_directory"
-Parameters: {}
-Metadata: {}
-Conditions: {}
+          CidrIp: 
+            !ImportValue PrivateSubnet1
+      GroupName: "sg_active_directory-AZ2"
+
+Outputs:
+  StackAdSecurityGroup:
+    Description: The Web Security Group for Instances
+    Value: !Ref ADSecurityGroup
+    Export:
+      Name: adsecuritygroup-AZ2

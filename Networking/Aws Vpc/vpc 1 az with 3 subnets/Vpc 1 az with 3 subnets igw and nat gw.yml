@@ -1,4 +1,4 @@
-Description:  This template deploys a VPC, 2 Public and 2 Private Subnets with Igw and Nat Gateways.
+Description:  This template deploys a VPC, 1 Public and 1 Private and 1 Data Subnets with Igw and Nat Gateways.
 
 Parameters:
   EnvironmentName:
@@ -19,6 +19,11 @@ Parameters:
     Description: Please enter the IP range (CIDR notation) for the public subnet in the first Availability Zone
     Type: String
     Default: 10.0.2.0/24
+
+  DataSubnet1CIDR:
+    Description: Please enter the IP range (CIDR notation) for the public subnet in the first Availability Zone
+    Type: String
+    Default: 10.0.3.0/24
 
 Resources:
   VPC:
@@ -71,11 +76,11 @@ Resources:
     Properties:
       VpcId: !Ref VPC
       AvailabilityZone: !Select [ 0, !GetAZs  '' ]
-      CidrBlock: !Ref PrivateSubnet1CIDR
+      CidrBlock: !Ref DataSubnet1CIDR
       MapPublicIpOnLaunch: false
       Tags:
         - Key: Name
-          Value: !Sub ${EnvironmentName} Private Subnet (AZ1)
+          Value: !Sub ${EnvironmentName} Data Subnet (AZ1)
 
   NatGateway1EIP:
     Type: AWS::EC2::EIP
@@ -133,44 +138,38 @@ Resources:
       SubnetId: !Ref PrivateSubnet1
 
 Outputs:
+  EnvironmentName:
+    Description: A reference the environement the vpc was built for
+    Value: !Ref EnvironmentName
+    Export:
+      Name: Environment
+
   VPC:
     Description: A reference to the created VPC
     Value: !Ref VPC
     Export:
       Name: VPCID
 
-  PublicSubnets:
-    Description: A list of the public subnets
-    Value: !Join [ ",", [ !Ref PublicSubnet1]]
+  VPCCIDR:
+    Description: The VPC IPv4 Subnet
+    Value: !GetAtt VPC.CidrBlock
+    Export:
+      Name: VPCIDR
 
-  PrivateSubnets:
-    Description: A list of the private subnets
-    Value: !Join [ ",", [ !Ref PrivateSubnet1]]
-
-  DataSubnets:
-    Description: A list of the data subnets
-    Value: !Join [ ",", [ !Ref DataSubnet1]]
-
-  PublicSubnet1:
-    Description: A reference to the public subnet in the 1st Availability Zone
+  PublicSubnetid1:
+    Description: A reference to the public subnet id in the 1st Availability Zone
     Value: !Ref PublicSubnet1
     Export:
       Name: PublicSubnet1
 
-  PrivateSubnet1:
-    Description: A reference to the private subnet in the 1st Availability Zone
+  PrivateSubnetid1:
+    Description: A reference to the private subnet id in the 1st Availability Zone
     Value: !Ref PrivateSubnet1
     Export:
       Name: PrivateSubnet1
 
-  DataSubnet1:
-    Description: A reference to the Data subnet in the 1st Availability Zone
+  DataSubnetid1:
+    Description: A reference to the Data subnet in id the 1st Availability Zone
     Value: !Ref DataSubnet1
     Export:
       Name: DataSubnet1
-  
-  EnvironmentName:
-    Description: A reference to the private subnet in the 1st Availability Zone
-    Value: !Ref EnvironmentName
-    Export:
-      Name: Environment

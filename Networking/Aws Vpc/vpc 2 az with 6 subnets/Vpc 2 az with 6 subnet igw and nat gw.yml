@@ -225,11 +225,23 @@ Resources:
       SubnetId: !Ref PrivateSubnet2
 
 Outputs:
+  EnvironmentName:
+    Description: A reference the environement the vpc was built for
+    Value: !Ref EnvironmentName
+    Export:
+      Name: Environment
+
   VPC:
     Description: A reference to the created VPC
     Value: !Ref VPC
     Export:
       Name: VPCID
+
+  VPCCIDR:
+    Description: The VPC IPv4 Subnet
+    Value: !GetAtt VPC.CidrBlock
+    Export:
+      Name: VPCIDR
 
   PublicSubnets:
     Description: A list of the public subnets
@@ -243,44 +255,38 @@ Outputs:
     Description: A list of the data subnets
     Value: !Join [ ",", [ !Ref DataSubnet1, !Ref DataSubnet2 ]]
 
-  PublicSubnet1:
+  PublicSubnetid1:
     Description: A reference to the public subnet in the 1st Availability Zone
     Value: !Ref PublicSubnet1
     Export:
       Name: PublicSubnet1
 
-  PublicSubnet2:
+  PublicSubnetid2:
     Description: A reference to the public subnet in the 2nd Availability Zone
     Value: !Ref PublicSubnet2
     Export:
       Name: PublicSubnet2
 
-  PrivateSubnet1:
+  PrivateSubnetid1:
     Description: A reference to the private subnet in the 1st Availability Zone
     Value: !Ref PrivateSubnet1
     Export:
       Name: PrivateSubnet1
 
-  PrivateSubnet2:
+  PrivateSubnetid2:
     Description: A reference to the private subnet in the 2nd Availability Zone
     Value: !Ref PrivateSubnet2
     Export:
       Name: PrivateSubnet2
 
-  DataSubnet1:
+  DataSubnetid1:
     Description: A reference to the Data subnet in the 1st Availability Zone
     Value: !Ref DataSubnet1
     Export:
       Name: DataSubnet1
 
-  DataSubnet2:
+  DataSubnetid2:
     Description: A reference to the Data subnet in the 2nd Availability Zone
     Value: !Ref DataSubnet2
     Export:
       Name: DataSubnet1
-
-  EnvironmentName:
-    Description: A reference to the private subnet in the 1st Availability Zone
-    Value: !Ref EnvironmentName
-    Export:
-      Name: Environment

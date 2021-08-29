@@ -40,8 +40,8 @@ Resources:
             Scheme: "internal"
             Type: "application"
             Subnets: 
-              - !ImportValue PrivateSubnet1
-              - !ImportValue PrivateSubnet2
+              - !ImportValue PrivateSubnetid1
+              - !ImportValue PrivateSubnetid2
             SecurityGroups: 
               - !Ref ALBSecurityGroup
             IpAddressType: "ipv4"

@@ -17,18 +17,18 @@ Resources:
           IpProtocol: "tcp"
           Description: "Allow HTTP traffic"
           CidrIp: 
-            !ImportValue PrivateSubnet1
+            !ImportValue PrivateSubnet3
         - FromPort: 443
           ToPort: 443
           IpProtocol: "tcp"
           Description: "Allow HTTPS traffic"
           CidrIp: 
-            !ImportValue PrivateSubnet1
-      GroupName: "allow-web-traffic"
+            !ImportValue PrivateSubnet3
+      GroupName: "allow-web-traffic-AZ3"
 
 Outputs:
   StackWebSecurityGroup:
     Description: The Web Security Group for Instances
     Value: !Ref Websecuritygroup
     Export:
-      Name: websecuritygroup
+      Name: websecuritygroup-AZ3
