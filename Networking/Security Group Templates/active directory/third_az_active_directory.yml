@@ -6,7 +6,7 @@ Resources:
     Properties:
       GroupDescription: "A security group that allows domain controller services on Microsoft Active Directory servers."
       VpcId: 
-        !ImportValue VPCID
+          !ImportValue VPCID
       SecurityGroupEgress:
         - FromPort: -1
           ToPort: -1
@@ -19,79 +19,79 @@ Resources:
           IpProtocol: "tcp"
           Description: "Active Directory Web Services (ADWS) / Active Directory Management Gateway Service"
           CidrIp: 
-            !ImportValue PrivateSubnet3
+            !ImportValue PrivateSubnetid1
         - FromPort: 3269
           ToPort: 3269
           IpProtocol: "tcp"
           Description: "Global Catalog"
           CidrIp: 
-            !ImportValue PrivateSubnet3
+            !ImportValue PrivateSubnetid1
         - FromPort: 3268
           ToPort: 3268
           IpProtocol: "tcp"
           Description: "Global Catalog"
           CidrIp: 
-            !ImportValue PrivateSubnet3
+            !ImportValue PrivateSubnetid1
         - FromPort: -1
           ToPort: -1
           IpProtocol: "icmp"
           Description: "ICMP"
           CidrIp: 
-            !ImportValue PrivateSubnet3
+            !ImportValue PrivateSubnetid1
         - FromPort: 389
           ToPort: 389
           IpProtocol: "tcp"
           Description: "LDAP Server"
           CidrIp: 
-            !ImportValue PrivateSubnet3
+            !ImportValue PrivateSubnetid1
         - FromPort: 389
           ToPort: 389
           IpProtocol: "udp"
           Description: "LDAP Server"
           CidrIp: 
-            !ImportValue PrivateSubnet3
+            !ImportValue PrivateSubnetid1
         - FromPort: 636
           ToPort: 636
           IpProtocol: "tcp"
           Description: "LDAP Server (SSL)"
           CidrIp: 
-            !ImportValue PrivateSubnet3
+            !ImportValue PrivateSubnetid1
         - FromPort: 445
           ToPort: 445
           IpProtocol: "tcp"
           Description: "SMB"
           CidrIp: 
-            !ImportValue PrivateSubnet3
+            !ImportValue PrivateSubnetidid1
         - FromPort: 135
           ToPort: 135
           IpProtocol: "tcp"
           Description: "RPC"
           CidrIp: 
-            !ImportValue PrivateSubnet3
+            !ImportValue PrivateSubnetid1
         - FromPort: 1024
           ToPort: 5000
           IpProtocol: "tcp"
           Description: "RPC randomly allocated tcp high ports"
           CidrIp: 
-            !ImportValue PrivateSubnet3
+            !ImportValue PrivateSubnetid1
         - FromPort: 49152
           ToPort: 65535
           IpProtocol: "tcp"
           Description: "RPC randomly allocated tcp high ports"
           CidrIp: 
-            !ImportValue PrivateSubnet3
+            !ImportValue PrivateSubnetid1
         - FromPort: 500
           ToPort: 500
           IpProtocol: "udp"
           Description: "IPSec ISAKMP"
           CidrIp: 
-            !ImportValue PrivateSubnet3
+            !ImportValue PrivateSubnetid1
         - FromPort: 4500
           ToPort: 4500
           IpProtocol: "udp"
           Description: "NAT-T"
           CidrIp: 
-            !ImportValue PrivateSubnet3
+            !ImportValue PrivateSubnetid1
       GroupName: "sg_active_directory-AZ1"
 
 Outputs:
@@ -99,4 +99,4 @@ Outputs:
     Description: The Web Security Group for Instances
     Value: !Ref ADSecurityGroup
     Export:
-      Name: adsecuritygroup-AZ1
+      Name: adsecuritygroup-AZ3

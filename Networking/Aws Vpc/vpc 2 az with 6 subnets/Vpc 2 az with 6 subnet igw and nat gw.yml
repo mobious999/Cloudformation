@@ -290,3 +290,40 @@ Outputs:
     Value: !Ref DataSubnet2
     Export:
       Name: DataSubnet1
+
+  Publiccidr1:
+    Description: A reference to the public subnet in the 1st Availability Zone
+    Value: !Ref PublicSubnet1CIDR
+    Export:
+      Name: Publiccidr1
+
+  Publiccidr2:
+    Description: A reference to the public subnet in the 1st Availability Zone
+    Value: !Ref PublicSubnet2CIDR
+    Export:
+      Name: Publiccidr2
+
+  Privatecidr1:
+    Description: A reference to the private subnet in the 1st Availability Zone
+    Value: !Ref PrivateSubnet1CIDR
+    Export:
+      Name: Privatecidr1
+  
+  Privatecidr2:
+    Description: A reference to the private subnet in the 1st Availability Zone
+    Value: !Ref PrivateSubnet2CIDR
+    Export:
+      Name: Privatecidr2
+
+  Datacidr1:
+    Description: A reference to the private subnet in the 1st Availability Zone
+    Value: !Ref DataSubnet1CIDR
+    Export:
+      Name: Datacidr1
+  
+  Datacidr2:
+    Description: A reference to the private subnet in the 1st Availability Zone
+    Value: !Ref DataSubnet2CIDR
+    Export:
+      Name: Datacidr2
+  
