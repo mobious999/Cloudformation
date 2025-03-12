@@ -1,0 +1,63 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Creates Route 53 Alias Records for the Load Balancers"
+
+Parameters:
+  HostedZoneId:
+    Type: String
+    Description: "Route 53 Hosted Zone ID (where the domain is hosted)"
+
+  DomainNameLB1:
+    Type: String
+    Description: "Fully Qualified Domain Name (FQDN) for Load Balancer 1 (e.g., lb1.example.com)"
+
+  DomainNameLB2:
+    Type: String
+    Description: "Fully Qualified Domain Name (FQDN) for Load Balancer 2 (e.g., lb2.example.com)"
+
+  DomainNameLB3:
+    Type: String
+    Description: "Fully Qualified Domain Name (FQDN) for Load Balancer 3 (e.g., lb3.example.com)"
+
+Resources:
+  Route53RecordLB1:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Ref DomainNameLB1
+      Type: A
+      AliasTarget:
+        HostedZoneId: !GetAtt LoadBalancer1.CanonicalHostedZoneID
+        DNSName: !GetAtt LoadBalancer1.DNSName
+
+  Route53RecordLB2:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Ref DomainNameLB2
+      Type: A
+      AliasTarget:
+        HostedZoneId: !GetAtt LoadBalancer2.CanonicalHostedZoneID
+        DNSName: !GetAtt LoadBalancer2.DNSName
+
+  Route53RecordLB3:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Ref DomainNameLB3
+      Type: A
+      AliasTarget:
+        HostedZoneId: !GetAtt LoadBalancer3.CanonicalHostedZoneID
+        DNSName: !GetAtt LoadBalancer3.DNSName
+
+Outputs:
+  Route53RecordLB1:
+    Description: "Route 53 Alias for Load Balancer 1"
+    Value: !Ref DomainNameLB1
+
+  Route53RecordLB2:
+    Description: "Route 53 Alias for Load Balancer 2"
+    Value: !Ref DomainNameLB2
+
+  Route53RecordLB3:
+    Description: "Route 53 Alias for Load Balancer 3"
+    Value: !Ref DomainNameLB3

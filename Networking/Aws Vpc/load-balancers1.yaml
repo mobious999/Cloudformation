@@ -1,0 +1,209 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Creates three internal Application Load Balancers with instance registration."
+
+Parameters:
+  VpcId:
+    Type: String
+    Description: "VPC ID where Load Balancers will be deployed"
+    Default: !ImportValue "MyVPCStack-VPCID"
+
+  PrivateSubnet1:
+    Type: String
+    Description: "First Private Subnet"
+    Default: !ImportValue "MyVPCStack-PrivateSubnet1"
+
+  PrivateSubnet2:
+    Type: String
+    Description: "Second Private Subnet"
+    Default: !ImportValue "MyVPCStack-PrivateSubnet2"
+
+  LoadBalancer1CertificateArn:
+    Type: String
+    Description: "ACM Certificate ARN for Load Balancer 1"
+
+  LoadBalancer2CertificateArn:
+    Type: String
+    Description: "ACM Certificate ARN for Load Balancer 2"
+
+  LoadBalancer3CertificateArn:
+    Type: String
+    Description: "ACM Certificate ARN for Load Balancer 3"
+
+  InstanceIdsLB1:
+    Type: List<AWS::EC2::Instance::Id>
+    Description: "List of EC2 instance IDs for Load Balancer 1 Target Group"
+
+  InstanceIdsLB2:
+    Type: List<AWS::EC2::Instance::Id>
+    Description: "List of EC2 instance IDs for Load Balancer 2 Target Group"
+
+  InstanceIdsLB3:
+    Type: List<AWS::EC2::Instance::Id>
+    Description: "List of EC2 instance IDs for Load Balancer 3 Target Group"
+
+Resources:
+  # 🚀 Load Balancer 1 (Internal)
+  LoadBalancer1:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: "LoadBalancer1"
+      Scheme: internal  # Internal-only ALB
+      Type: application
+      SecurityGroups: []
+      Subnets:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+
+  LoadBalancer1ListenerHTTP:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref LoadBalancer1
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: Forward
+          TargetGroupArn: !Ref LoadBalancer1TargetGroup
+
+  LoadBalancer1ListenerHTTPS:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref LoadBalancer1
+      Port: 443
+      Protocol: HTTPS
+      Certificates:
+        - CertificateArn: !Ref LoadBalancer1CertificateArn
+      DefaultActions:
+        - Type: Forward
+          TargetGroupArn: !Ref LoadBalancer1TargetGroup
+
+  LoadBalancer1TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: "LB1-TargetGroup"
+      VpcId: !Ref VpcId
+      Protocol: HTTP
+      Port: 8080
+      TargetType: instance
+      HealthCheckProtocol: HTTP
+      HealthCheckPort: 8080
+      HealthCheckPath: "/"
+      Matcher:
+        HttpCode: "200"
+      Targets:
+        - Id: !Select [0, !Ref InstanceIdsLB1]
+        - Id: !Select [1, !Ref InstanceIdsLB1]
+
+  # 🚀 Load Balancer 2 (Internal)
+  LoadBalancer2:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: "LoadBalancer2"
+      Scheme: internal
+      Type: application
+      SecurityGroups: []
+      Subnets:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+
+  LoadBalancer2ListenerHTTP:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref LoadBalancer2
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: Forward
+          TargetGroupArn: !Ref LoadBalancer2TargetGroup
+
+  LoadBalancer2ListenerHTTPS:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref LoadBalancer2
+      Port: 443
+      Protocol: HTTPS
+      Certificates:
+        - CertificateArn: !Ref LoadBalancer2CertificateArn
+      DefaultActions:
+        - Type: Forward
+          TargetGroupArn: !Ref LoadBalancer2TargetGroup
+
+  LoadBalancer2TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: "LB2-TargetGroup"
+      VpcId: !Ref VpcId
+      Protocol: HTTP
+      Port: 8080
+      TargetType: instance
+      HealthCheckProtocol: HTTP
+      HealthCheckPort: 8080
+      HealthCheckPath: "/"
+      Matcher:
+        HttpCode: "200"
+      Targets:
+        - Id: !Select [0, !Ref InstanceIdsLB2]
+        - Id: !Select [1, !Ref InstanceIdsLB2]
+
+  # 🚀 Load Balancer 3 (Internal)
+  LoadBalancer3:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: "LoadBalancer3"
+      Scheme: internal
+      Type: application
+      SecurityGroups: []
+      Subnets:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+
+  LoadBalancer3ListenerHTTP:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref LoadBalancer3
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: Forward
+          TargetGroupArn: !Ref LoadBalancer3TargetGroup
+
+  LoadBalancer3ListenerHTTPS:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref LoadBalancer3
+      Port: 443
+      Protocol: HTTPS
+      Certificates:
+        - CertificateArn: !Ref LoadBalancer3CertificateArn
+      DefaultActions:
+        - Type: Forward
+          TargetGroupArn: !Ref LoadBalancer3TargetGroup
+
+  LoadBalancer3TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: "LB3-TargetGroup"
+      VpcId: !Ref VpcId
+      Protocol: HTTP
+      Port: 8080
+      TargetType: instance
+      HealthCheckProtocol: HTTP
+      HealthCheckPort: 8080
+      HealthCheckPath: "/"
+      Matcher:
+        HttpCode: "200"
+      Targets:
+        - Id: !Select [0, !Ref InstanceIdsLB3]
+        - Id: !Select [1, !Ref InstanceIdsLB3]
+
+Outputs:
+  LoadBalancer1DNS:
+    Description: "DNS Name of Load Balancer 1"
+    Value: !GetAtt LoadBalancer1.DNSName
+
+  LoadBalancer2DNS:
+    Description: "DNS Name of Load Balancer 2"
+    Value: !GetAtt LoadBalancer2.DNSName
+
+  LoadBalancer3DNS:
+    Description: "DNS Name of Load Balancer 3"
+    Value: !GetAtt LoadBalancer3.DNSName"

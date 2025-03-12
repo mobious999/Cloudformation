@@ -250,6 +250,12 @@ Outputs:
     Export:
       Name: VPCID
 
+  VPCID:
+    Description: "VPC ID"
+    Value: !Ref VPC
+    Export:
+      Name: !Sub "${AWS::StackName}-VPCID"
+
   VPCCIDR:
     Description: The VPC IPv4 Subnet
     Value: !GetAtt VPC.CidrBlock

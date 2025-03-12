@@ -1,0 +1,77 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Deploys all possible AWS VPC Endpoints in a VPC, placing Interface Endpoints in Private Subnets."
+
+Parameters:
+  SecurityGroupName:
+    Type: String
+    Default: "VPCInterfaceEndpointsSG"
+    Description: "Security group for VPC interface endpoints"
+
+Resources:
+  # SECURITY GROUP FOR INTERFACE ENDPOINTS
+  InterfaceEndpointSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Ref SecurityGroupName
+      GroupDescription: "Security Group for Interface VPC Endpoints"
+      VpcId: 
+        Fn::ImportValue: "MyVPCStack-VPCID"
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0  # Adjust as needed for security
+
+  # GATEWAY ENDPOINTS (S3 & DynamoDB)
+  S3GatewayEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: 
+        Fn::ImportValue: "MyVPCStack-VPCID"
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.s3"
+      RouteTableIds:
+        - Fn::ImportValue: "MyVPCStack-PrivateRouteTableID"
+      VpcEndpointType: Gateway
+
+  DynamoDBGatewayEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: 
+        Fn::ImportValue: "MyVPCStack-VPCID"
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.dynamodb"
+      RouteTableIds:
+        - Fn::ImportValue: "MyVPCStack-PrivateRouteTableID"
+      VpcEndpointType: Gateway
+
+  # INTERFACE ENDPOINTS (Placing them in Private Subnets)
+  InterfaceEndpoints:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: "https://s3.amazonaws.com/my-cloudformation-templates/all-interface-endpoints.yaml" # Upload separately for nested stacks
+      Parameters:
+        VpcId: 
+          Fn::ImportValue: "MyVPCStack-VPCID"
+        PrivateSubnet1Id: 
+          Fn::ImportValue: "MyVPCStack-PrivateSubnet1"
+        PrivateSubnet2Id: 
+          Fn::ImportValue: "MyVPCStack-PrivateSubnet2"
+        SecurityGroupId: !Ref InterfaceEndpointSecurityGroup
+
+Outputs:
+  S3GatewayEndpoint:
+    Description: "S3 Gateway Endpoint"
+    Value: !Ref S3GatewayEndpoint
+    Export:
+      Name: !Sub "${AWS::StackName}-S3GatewayEndpoint"
+
+  DynamoDBGatewayEndpoint:
+    Description: "DynamoDB Gateway Endpoint"
+    Value: !Ref DynamoDBGatewayEndpoint
+    Export:
+      Name: !Sub "${AWS::StackName}-DynamoDBGatewayEndpoint"
+
+  InterfaceSecurityGroup:
+    Description: "Security Group for Interface Endpoints"
+    Value: !Ref InterfaceEndpointSecurityGroup
+    Export:
+      Name: !Sub "${AWS::StackName}-InterfaceEndpointSG"

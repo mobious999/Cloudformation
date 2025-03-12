@@ -1,0 +1,71 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Creates Route 53 Private Hosted Zone and Resolver Endpoints for bobo.com"
+
+Parameters:
+  VpcId:
+    Type: String
+    Description: "VPC ID to associate with the Private Hosted Zone"
+    Default: !ImportValue "MyVPCStack-VPCID"
+
+  Subnet1Id:
+    Type: String
+    Description: "Subnet ID for Resolver Endpoints (First)"
+    Default: !ImportValue "MyVPCStack-PrivateSubnet1"
+
+  Subnet2Id:
+    Type: String
+    Description: "Subnet ID for Resolver Endpoints (Second)"
+    Default: !ImportValue "MyVPCStack-PrivateSubnet2"
+
+Resources:
+  # 🚀 Private Hosted Zone for Internal Resolution
+  Route53PrivateHostedZone:
+    Type: AWS::Route53::HostedZone
+    Properties:
+      Name: "bobo.com"
+      VPCs:
+        - VPCId: !Ref VpcId
+          VPCRegion: !Ref AWS::Region
+      HostedZoneConfig:
+        Comment: "Private Hosted Zone for internal resolution of bobo.com"
+
+  # 🚀 Route 53 Resolver Inbound Endpoint (For On-Prem DNS Requests)
+  ResolverInboundEndpoint:
+    Type: AWS::Route53Resolver::ResolverEndpoint
+    Properties:
+      Direction: "INBOUND"
+      SecurityGroupIds: []
+      IpAddresses:
+        - SubnetId: !Ref Subnet1Id
+        - SubnetId: !Ref Subnet2Id
+      Name: "InboundEndpoint"
+
+  # 🚀 Route 53 Resolver Outbound Endpoint (For VPC External Resolution)
+  ResolverOutboundEndpoint:
+    Type: AWS::Route53Resolver::ResolverEndpoint
+    Properties:
+      Direction: "OUTBOUND"
+      SecurityGroupIds: []
+      IpAddresses:
+        - SubnetId: !Ref Subnet1Id
+        - SubnetId: !Ref Subnet2Id
+      Name: "OutboundEndpoint"
+
+Outputs:
+  HostedZoneId:
+    Description: "Private Hosted Zone ID"
+    Value: !Ref Route53PrivateHostedZone
+    Export:
+      Name: !Sub "${AWS::StackName}-HostedZoneId"
+
+  ResolverInboundEndpointId:
+    Description: "Resolver Inbound Endpoint ID"
+    Value: !Ref ResolverInboundEndpoint
+    Export:
+      Name: !Sub "${AWS::StackName}-ResolverInboundEndpointId"
+
+  ResolverOutboundEndpointId:
+    Description: "Resolver Outbound Endpoint ID"
+    Value: !Ref ResolverOutboundEndpoint
+    Export:
+      Name: !Sub "${AWS::StackName}-ResolverOutboundEndpointId"
