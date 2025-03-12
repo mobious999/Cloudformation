@@ -31,12 +31,12 @@ Parameters:
     Default: 10.0.4.0/24
   
   DataSubnet1CIDR:
-    Description: Please enter the IP range (CIDR notation) for the private subnet in the first Availability Zone
+    Description: Please enter the IP range (CIDR notation) for the database subnet in the first Availability Zone
     Type: String
     Default: 10.0.5.0/24
 
   DataSubnet2CIDR:
-    Description: Please enter the IP range (CIDR notation) for the private subnet in the second Availability Zone
+    Description: Please enter the IP range (CIDR notation) for the database subnet in the second Availability Zone
     Type: String
     Default: 10.0.6.0/24
 
@@ -160,7 +160,7 @@ Resources:
       VpcId: !Ref VPC
       Tags:
         - Key: Name
-          Value: !Sub ${EnvironmentName} Public Routes
+          Value: !Sub "${EnvironmentName} Public Route Table"
 
   DefaultPublicRoute:
     Type: AWS::EC2::Route
@@ -190,39 +190,52 @@ Resources:
         - Key: Name
           Value: !Sub ${EnvironmentName} Private Routes (AZ1)
 
-  DefaultPrivateRoute1:
-    Type: AWS::EC2::Route
-    Properties:
-      RouteTableId: !Ref PrivateRouteTable1
-      DestinationCidrBlock: 0.0.0.0/0
-      NatGatewayId: !Ref NatGateway1
-
-  PrivateSubnet1RouteTableAssociation:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      RouteTableId: !Ref PrivateRouteTable1
-      SubnetId: !Ref PrivateSubnet1
-
-  PrivateRouteTable2:
+  PrivateRouteTable:
     Type: AWS::EC2::RouteTable
     Properties:
       VpcId: !Ref VPC
       Tags:
         - Key: Name
-          Value: !Sub ${EnvironmentName} Private Routes (AZ2)
+          Value: !Sub "${EnvironmentName} Private Route Table"
 
-  DefaultPrivateRoute2:
+  DefaultPrivateRoute:
     Type: AWS::EC2::Route
     Properties:
-      RouteTableId: !Ref PrivateRouteTable2
+      RouteTableId: !Ref PrivateRouteTable
       DestinationCidrBlock: 0.0.0.0/0
-      NatGatewayId: !Ref NatGateway2
+      NatGatewayId: !Ref NatGateway1  # Ensure NAT Gateway is referenced correctly
+
+  PrivateSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      SubnetId: !Ref PrivateSubnet1
 
   PrivateSubnet2RouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      RouteTableId: !Ref PrivateRouteTable2
+      RouteTableId: !Ref PrivateRouteTable
       SubnetId: !Ref PrivateSubnet2
+
+  DataRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub "${EnvironmentName} Data Route Table"
+
+  DataSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref DataRouteTable
+      SubnetId: !Ref DataSubnet1
+
+  DataSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref DataRouteTable
+      SubnetId: !Ref DataSubnet2
 
 Outputs:
   EnvironmentName:
@@ -289,7 +302,7 @@ Outputs:
     Description: A reference to the Data subnet in the 2nd Availability Zone
     Value: !Ref DataSubnet2
     Export:
-      Name: DataSubnet1
+      Name: DataSubnet2
 
   Publiccidr1:
     Description: A reference to the public subnet in the 1st Availability Zone
@@ -298,7 +311,7 @@ Outputs:
       Name: Publiccidr1
 
   Publiccidr2:
-    Description: A reference to the public subnet in the 1st Availability Zone
+    Description: A reference to the public subnet in the 2nd Availability Zone
     Value: !Ref PublicSubnet2CIDR
     Export:
       Name: Publiccidr2
@@ -310,7 +323,7 @@ Outputs:
       Name: Privatecidr1
   
   Privatecidr2:
-    Description: A reference to the private subnet in the 1st Availability Zone
+    Description: A reference to the private subnet in the 2nd Availability Zone
     Value: !Ref PrivateSubnet2CIDR
     Export:
       Name: Privatecidr2
@@ -322,7 +335,7 @@ Outputs:
       Name: Datacidr1
   
   Datacidr2:
-    Description: A reference to the private subnet in the 1st Availability Zone
+    Description: A reference to the private subnet in the 2nd Availability Zone
     Value: !Ref DataSubnet2CIDR
     Export:
       Name: Datacidr2
