@@ -574,3 +574,8 @@ Outputs:
     Export:
       Name: Datacidr4
   
+    VPCID:
+    Description: "VPC ID"
+    Value: !Ref VPC
+    Export:
+      Name: !Sub "${AWS::StackName}-VPCID"

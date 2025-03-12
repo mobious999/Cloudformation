@@ -32,3 +32,10 @@ Outputs:
     Value: !Ref Websecuritygroup
     Export:
       Name: websecuritygroup
+
+  VPCID:
+    Description: "VPC ID"
+    Value: !Ref VPC
+    Export:
+      Name: !Sub "${AWS::StackName}-VPCID"
+

@@ -266,3 +266,9 @@ Outputs:
     Value: !Ref PrivateSubnet2CIDR
     Export:
       Name: Privatecidr2
+
+  VPCID:
+    Description: "VPC ID"
+    Value: !Ref VPC
+    Export:
+      Name: !Sub "${AWS::StackName}-VPCID"

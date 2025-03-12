@@ -191,4 +191,10 @@ Outputs:
     Value: !Ref DataSubnet1CIDR
     Export:
       Name: Datacidr1
+
+  VPCID:
+    Description: "VPC ID"
+    Value: !Ref VPC
+    Export:
+      Name: !Sub "${AWS::StackName}-VPCID"
   

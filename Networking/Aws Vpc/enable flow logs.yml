@@ -1,32 +1,34 @@
-Description:  This template enables vpc flow logs.  
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "This CloudFormation template enables VPC Flow Logs, sending traffic logs to CloudWatch Logs with an IAM role for permissions."
 
-Resources:  
-  FlowLogs:
-    Type: "AWS::EC2::FlowLog"
-    Properties:
-      ResourceType: "VPC"
-      ResourceId:
-        Ref: "VPC"
-      TrafficType: "ALL"
-      LogDestinationType: "cloud-watch-logs"
-      LogGroupName: "FlowLogs"
-      DeliverLogsPermissionArn:
-        Fn::GetAtt:
-          - "IamRoleForFlowLogs"
-          - "Arn"
+Parameters:
+  FlowLogRoleName:
+    Type: String
+    Default: "iamRoleFlowLogsToCloudWatchLogs"
+    Description: "IAM Role name for VPC Flow Logs"
+
+  FlowLogsRetentionDays:
+    Type: Number
+    Default: 30
+    Description: "Number of days to retain flow logs in CloudWatch Logs"
+
+Resources:
+  # CloudWatch Log Group for VPC Flow Logs
   FlowLogsGroup:
-    Type: "AWS::Logs::LogGroup"
+    Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: "FlowLogs"
+      LogGroupName: !Sub "/aws/vpc/${AWS::StackName}-flow-logs"
+      RetentionInDays: !Ref FlowLogsRetentionDays
+
+  # IAM Role for VPC Flow Logs
   IamRoleForFlowLogs:
-    Type: "AWS::IAM::Role"
+    Type: AWS::IAM::Role
     Properties:
-      RoleName: "iamRoleFlowLogsToCloudWatchLogs"
+      RoleName: !Ref FlowLogRoleName
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
-          - Sid: ""
-            Effect: "Allow"
+          - Effect: "Allow"
             Principal:
               Service: "vpc-flow-logs.amazonaws.com"
             Action: "sts:AssumeRole"
@@ -42,4 +44,29 @@ Resources:
                   - "logs:PutLogEvents"
                   - "logs:DescribeLogGroups"
                   - "logs:DescribeLogStreams"
-                Resource: "*"
+                Resource: !GetAtt FlowLogsGroup.Arn
+
+  # VPC Flow Logs (Attaches to the VPC)
+  FlowLogs:
+    Type: AWS::EC2::FlowLog
+    Properties:
+      ResourceType: "VPC"
+      ResourceId:
+        Fn::ImportValue: "MyVPCStack-VPCID"  # Ensure this matches the VPC stack output
+      TrafficType: "ALL"
+      LogDestinationType: "cloud-watch-logs"
+      LogGroupName: !Ref FlowLogsGroup
+      DeliverLogsPermissionArn: !GetAtt IamRoleForFlowLogs.Arn
+
+Outputs:
+  FlowLogGroupName:
+    Description: "CloudWatch Log Group for VPC Flow Logs"
+    Value: !Ref FlowLogsGroup
+    Export:
+      Name: !Sub "${AWS::StackName}-FlowLogsGroup"
+
+  FlowLogIAMRole:
+    Description: "IAM Role used by VPC Flow Logs"
+    Value: !Ref IamRoleForFlowLogs
+    Export:
+      Name: !Sub "${AWS::StackName}-FlowLogsRole"
